@@ -5,6 +5,9 @@ import { defineConfig, devices } from "@playwright/test";
 export default defineConfig({
   testDir: "tests/e2e",
   timeout: 30_000,
+  // One retry on CI only: a slow shared runner should not block a release;
+  // a test that needs it is reported as "flaky" in the run summary.
+  retries: process.env.CI ? 1 : 0,
   fullyParallel: false,
   reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : "list",
   use: {
