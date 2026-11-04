@@ -12,7 +12,7 @@ This policy explains what personal data HookShield collects, why, and what you c
 
 ## Who we are
 
-HookShield Cloud is operated by **[legal entity name]**, [registered address] ("we", "us"). Contact for anything in this policy: **hello@hookshield.dev**.
+HookShield Cloud is operated by **BOREALCODE COMERCIO E SERVIÇOS LTDA** (trading as BorealCode, CNPJ 48.392.038/0001-83), Rua Lucas José de Alvarenga, 1, Jardim Amália, São Paulo – SP, 05892-470, Brazil ("we", "us"), the controller of your personal data under the Brazilian General Data Protection Law (LGPD) and, where it applies, the GDPR. Contact for anything in this policy: **hello@hookshield.dev**.
 
 ## This website
 
@@ -61,11 +61,12 @@ Payments are handled by **Paddle** (Paddle.com Market Ltd), our merchant of reco
 
 | Provider | Purpose | Location |
 |---|---|---|
-| [Infrastructure provider] | Servers, database and backups of HookShield Cloud | [region] |
+| Hostinger | Servers and database of HookShield Cloud | United States |
+| Cloudflare | DNS of hookshield.dev and encrypted database backups (R2) | United States |
 | Paddle | Payments, invoices, taxes | United Kingdom |
 | Resend | Sending transactional emails | United States |
 | Google | Sign-in with Google (only if you use it) | Worldwide |
-| [Website host] | Serving this website | [region] |
+| GitHub (GitHub Pages) | Serving this website | United States |
 
 Transfers outside your country rely on the safeguards required by law (such as the European Commission's Standard Contractual Clauses).
 

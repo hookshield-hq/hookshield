@@ -6,7 +6,7 @@ draft: true
 
 # Terms of Service
 
-These terms govern your use of **HookShield Cloud**, the hosted webhook gateway at `app.hookshield.dev`, `api.hookshield.dev` and `in.hookshield.dev` (the "Service"), operated by **[legal entity name]**, [registered address] ("we", "us"). By creating an account you agree to them. If you use the Service for an organisation, you accept them on its behalf.
+These terms govern your use of **HookShield Cloud**, the hosted webhook gateway at `app.hookshield.dev`, `api.hookshield.dev` and `in.hookshield.dev` (the "Service"), operated by **BOREALCODE COMERCIO E SERVIÇOS LTDA** (trading as BorealCode, CNPJ 48.392.038/0001-83), Rua Lucas José de Alvarenga, 1, Jardim Amália, São Paulo – SP, 05892-470, Brazil ("we", "us"). By creating an account you agree to them. If you use the Service for an organisation, you accept them on its behalf.
 
 The open-source HookShield software is licensed separately under the [MIT License](https://github.com/hookshield-hq/hookshield/blob/main/LICENSE). These terms do not apply to installations you run yourself.
 
@@ -55,4 +55,4 @@ We may update these terms. We will post the new version here and, for material c
 
 ## Law and contact
 
-These terms are governed by the laws of [jurisdiction], without prejudice to the mandatory consumer protection rules of your country of residence. Questions: **hello@hookshield.dev**.
+These terms are governed by the laws of Brazil, and the courts of São Paulo – SP have jurisdiction, without prejudice to the mandatory consumer protection rules and courts of your country of residence. Questions: **hello@hookshield.dev**.

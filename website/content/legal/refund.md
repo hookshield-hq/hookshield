@@ -1,7 +1,7 @@
 ---
 title: Refund Policy
 updated: 2026-11-04
-draft: true
+draft: false
 ---
 
 # Refund Policy
