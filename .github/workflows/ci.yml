@@ -1,0 +1,229 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (Go)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+
+      - name: gofmt
+        run: test -z "$(gofmt -l .)" || (gofmt -l . && exit 1)
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: Test
+        run: go test -race -count=1 -coverprofile=coverage.out ./...
+
+      - name: Coverage summary
+        run: go tool cover -func=coverage.out | tail -1
+
+      - name: Build
+        run: go build -trimpath ./cmd/...
+
+  backend-integration:
+    name: Backend integration (PostgreSQL + Redis)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: hookshield
+          POSTGRES_PASSWORD: hookshield
+          POSTGRES_DB: hookshield
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U hookshield"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+      mailpit:
+        image: axllent/mailpit:v1.21
+        ports:
+          - 1025:1025
+          - 8025:8025
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      HS_TEST_DATABASE_URL: postgres://hookshield:hookshield@localhost:5432/hookshield?sslmode=disable
+      HS_DATABASE_URL: postgres://hookshield:hookshield@localhost:5432/hookshield?sslmode=disable
+      HS_TEST_REDIS_URL: redis://localhost:6379/15
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+
+      - name: Integration tests (migrations, schema, store, cache, limits, ingest end-to-end)
+        run: go test -race -count=1 -tags integration ./...
+
+      - name: Boot migration via the api binary
+        run: go run ./cmd/api migrate up && go run ./cmd/api migrate status
+
+      - name: Ingest latency budget (p99 < 20 ms, no -race)
+        run: HS_PERF_TEST=1 go test -count=1 -tags integration -run TestLatencyBudget -v ./internal/ingest
+
+      - name: Native dev mode end-to-end (make dev + make smoke)
+        working-directory: .
+        run: |
+          ./scripts/dev.sh > dev.log 2>&1 &
+          for i in $(seq 1 120); do grep -q "HookShield is running" dev.log && break; sleep 1; done
+          ./scripts/smoke.sh
+          ./scripts/alert-demo.sh
+
+      - name: Native dev logs on failure
+        if: failure()
+        working-directory: .
+        run: cat dev.log || true
+
+  e2e-docker:
+    name: End-to-end (Docker Compose stack)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start the full stack (make up)
+        run: make up
+
+      - name: Dashboard is served and points at the API
+        run: curl -fsS http://localhost:3000/api/config | grep -q '"apiUrl":"http://localhost:8081"'
+
+      - name: Smoke test (seed → ingest → worker → sink)
+        run: make demo
+
+      - name: Alert test (failing endpoint → alert email in Mailpit)
+        run: make demo-alert
+
+      - name: Logs on failure
+        if: failure()
+        run: docker compose logs --no-color --tail=200
+
+      - name: Tear down
+        if: always()
+        run: docker compose down -v
+
+  web:
+    name: Dashboard (Next.js)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: hookshield
+          POSTGRES_PASSWORD: hookshield
+          POSTGRES_DB: hookshield
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U hookshield"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+      mailpit:
+        image: axllent/mailpit:v1.21
+        ports:
+          - 1025:1025
+          - 8025:8025 # e2e tests read the verification email (Phase 12)
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+
+      - name: Install
+        run: npm ci
+
+      - name: API types match the OpenAPI document
+        run: npm run gen:api && git diff --exit-code src/lib/api/schema.d.ts
+
+      - name: Type-check
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: i18n (key parity, placeholders, backend error codes, hard-coded text)
+        run: npm run check:i18n
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Start the Go services (make dev)
+        working-directory: .
+        run: |
+          ./scripts/dev.sh > dev.log 2>&1 &
+          for i in $(seq 1 120); do grep -q "HookShield is running" dev.log && break; sleep 1; done
+          grep -q "HookShield is running" dev.log
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: End-to-end tests (Playwright)
+        run: npx playwright test
+
+      - name: Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            web/playwright-report
+            web/test-results
+          retention-days: 7
+
+      - name: Logs on failure
+        if: failure()
+        working-directory: .
+        run: cat dev.log || true

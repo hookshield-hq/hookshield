@@ -1,0 +1,153 @@
+# HookShield — complete local environment in one command.
+#
+#   make up      # = scripts/ensure-env.sh + docker compose up -d --build --wait
+#   make demo    # seed demo data, send a webhook, check it reached the sink
+#   make logs    # follow all logs (the sink prints every delivery)
+#   make down    # stop (data kept)   ·   make reset  # stop and delete data
+#
+# Services: postgres, redis, api (runs migrations), ingest, worker, the
+# dashboard ("web", http://localhost:3000), a demo destination ("sink") that
+# prints every webhook it receives, and Mailpit, which catches every email
+# (web UI on http://localhost:8025).
+# Only HS_ENCRYPTION_KEY is read from .env (created by `make up`); every other
+# setting below is fixed for this stack. PostgreSQL and Redis are not exposed
+# on the host, so they never clash with databases you already run; every other
+# port is published on 127.0.0.1 only (this is a local stack with demo settings
+# — for a server use deploy/docker-compose.yml).
+
+name: hookshield
+
+x-backend: &backend
+  image: hookshield/backend:dev       # built once by the api service, reused by the others
+  pull_policy: never
+  restart: unless-stopped
+  environment: &backend-env
+    HS_ENV: development
+    HS_LOG_LEVEL: ${HS_LOG_LEVEL:-info}
+    HS_DATABASE_URL: postgres://hookshield:hookshield@postgres:5432/hookshield?sslmode=disable
+    HS_REDIS_URL: redis://redis:6379/0
+    HS_ENCRYPTION_KEY: ${HS_ENCRYPTION_KEY:?HS_ENCRYPTION_KEY is empty — run `make up` (or scripts/ensure-env.sh) to generate it}
+    HS_PUBLIC_INGEST_URL: http://localhost:${HS_INGEST_PORT:-8080}
+    HS_APP_URL: http://localhost:${HS_WEB_PORT:-3000}
+    HS_API_URL: http://localhost:${HS_API_PORT:-8081}
+    GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+    GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+    HS_SEED_TARGET: http://sink:4000/webhook
+    HS_ALLOW_PRIVATE_TARGETS: "true"   # the demo sink lives on the private compose network
+    HS_SMTP_URL: smtp://mailpit:1025     # every email is caught by Mailpit (http://localhost:8025)
+    HS_EMAIL_FROM: "HookShield <alerts@hookshield.local>"
+    HS_ALERT_COOLDOWN: ${HS_ALERT_COOLDOWN:-10m}
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: hookshield
+      POSTGRES_PASSWORD: hookshield
+      POSTGRES_DB: hookshield
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hookshield -d hookshield"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  api:
+    <<: *backend
+    build:
+      context: ./backend
+      args:
+        VERSION: dev-compose
+    pull_policy: build
+    entrypoint: ["api"]
+    ports:
+      - "127.0.0.1:${HS_API_PORT:-8081}:8081"
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8081/readyz"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+
+  ingest:
+    <<: *backend
+    entrypoint: ["ingest"]
+    ports:
+      - "127.0.0.1:${HS_INGEST_PORT:-8080}:8080"
+    depends_on:
+      api: { condition: service_healthy }   # the api applies migrations first
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/readyz"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+
+  worker:
+    <<: *backend
+    entrypoint: ["worker"]
+    depends_on:
+      api: { condition: service_healthy }
+      mailpit: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8082/readyz"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+
+  mailpit:
+    image: axllent/mailpit:v1.21
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${HS_MAILPIT_PORT:-8025}:8025"   # web UI with every alert email
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8025/livez"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  sink:
+    <<: *backend
+    entrypoint: ["hookshield", "sink", "--addr", ":4000", "--fail-first", "${HS_SINK_FAIL_FIRST:-0}"]
+    environment:
+      HS_ENV: development
+    ports:
+      - "127.0.0.1:${HS_SINK_PORT:-4000}:4000"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:4000/_sink/stats"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+
+  web:
+    build:
+      context: ./web
+    image: hookshield/web:dev
+    pull_policy: build
+    restart: unless-stopped
+    environment:
+      # The browser calls the API directly: use the URL the browser can reach.
+      HS_API_URL: http://localhost:${HS_API_PORT:-8081}
+    ports:
+      - "127.0.0.1:${HS_WEB_PORT:-3000}:3000"
+    depends_on:
+      api: { condition: service_healthy }
+
+volumes:
+  pgdata:
+  redisdata:

@@ -1,0 +1,11 @@
+bin/
+coverage.*
+*.out
+*.test
+**/*_test.go
+Dockerfile
+.dockerignore
+vendor/
+# Secrets anywhere in the context (a bare .env only matches at the root)
+**/.env
+**/.env.*

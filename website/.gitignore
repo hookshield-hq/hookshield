@@ -1,0 +1,4 @@
+# Copied from docs/assets and web/src/app by scripts/sync-assets.mjs
+/public/docs-assets/
+/public/brand/
+/public/favicon.ico

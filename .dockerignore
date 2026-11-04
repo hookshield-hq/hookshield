@@ -1,0 +1,22 @@
+# Build context of the all-in-one image (Dockerfile at the repository root).
+.git
+.github
+# Secrets anywhere in the context (a bare .env only matches at the root)
+**/.env
+**/.env.*
+**/node_modules
+web/.next
+web/test-results
+web/playwright-report
+web/*.tsbuildinfo
+backend/bin
+backend/vendor
+bin
+**/*_test.go
+**/*.test.ts
+web/tests
+docs
+deploy
+instrucoes
+**/*.md
+website

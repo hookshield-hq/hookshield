@@ -1,0 +1,138 @@
+# HookShield — production install with Docker Compose.
+#
+#   ./setup.sh hooks.example.com     # writes .env (domain, database password)
+#   docker compose up -d             # first start: migrations + encryption key
+#   ./backup.sh                      # nightly database dump (see docs/SELF_HOSTING.md)
+#
+# One domain, HTTPS by Caddy (Let's Encrypt), path routing:
+#   https://{HS_DOMAIN}/            dashboard
+#   https://{HS_DOMAIN}/v1/…        API
+#   https://{HS_DOMAIN}/in/v1/{slug} ingest (the URLs you give to webhook senders)
+#
+# The encryption key is generated on the first start into the "keys" volume
+# (or set HS_ENCRYPTION_KEY in .env). BACK IT UP: docker compose exec api cat /var/lib/hookshield/encryption.key
+# More workers: docker compose up -d --scale worker=3
+# Every HS_* variable in .env reaches the services (docs/CONFIGURATION.md).
+# Memory: every container has a memory limit and Redis a maxmemory (the queues
+# must never be evicted, so a full Redis refuses new webhooks instead of
+# silently dropping queued ones). Tune with HS_REDIS_MAXMEMORY (default 256mb)
+# and HS_REDIS_MEM_LIMIT (default 512m, keep it ~2x maxmemory for AOF rewrites).
+# Logs: json-file, rotated at 20 MB x 5 files per container.
+
+name: hookshield
+
+x-logging: &logging
+  driver: json-file
+  options: { max-size: "20m", max-file: "5" }
+
+x-backend: &backend
+  image: ghcr.io/hookshield-hq/hookshield-backend:${HS_VERSION:-latest}
+  restart: unless-stopped
+  logging: *logging
+  mem_limit: 512m
+  env_file: [.env]
+  environment: &backend-env
+    HS_ENV: production
+    HS_PUBLIC_URL: https://${HS_DOMAIN:?set HS_DOMAIN in .env (run ./setup.sh)}
+    HS_DATABASE_URL: postgres://hookshield:${HS_POSTGRES_PASSWORD:?set HS_POSTGRES_PASSWORD in .env (run ./setup.sh)}@postgres:5432/hookshield?sslmode=disable
+    HS_REDIS_URL: redis://redis:6379/0
+    HS_TRUSTED_PROXIES: 10.0.0.0/8,172.16.0.0/12,192.168.0.0/16   # Caddy on the compose network
+  volumes:
+    - keys:/var/lib/hookshield
+  depends_on:
+    postgres: { condition: service_healthy }
+    redis: { condition: service_healthy }
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    logging: *logging
+    mem_limit: 256m
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      HS_DOMAIN: ${HS_DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on: [api, ingest, web]
+
+  api:
+    <<: *backend
+    entrypoint: ["api"]
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8081/readyz"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  ingest:
+    <<: *backend
+    entrypoint: ["ingest"]
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/readyz"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  worker:
+    <<: *backend
+    entrypoint: ["worker"]
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8082/readyz"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  web:
+    image: ghcr.io/hookshield-hq/hookshield-web:${HS_VERSION:-latest}
+    restart: unless-stopped
+    logging: *logging
+    mem_limit: 512m
+    environment:
+      HS_API_URL: https://${HS_DOMAIN}   # the browser calls the API on the same origin
+
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    logging: *logging
+    mem_limit: 1g
+    environment:
+      POSTGRES_USER: hookshield
+      POSTGRES_PASSWORD: ${HS_POSTGRES_PASSWORD}
+      POSTGRES_DB: hookshield
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hookshield -d hookshield"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    logging: *logging
+    mem_limit: ${HS_REDIS_MEM_LIMIT:-512m}
+    # Queues live here: persist every second and never evict keys. At maxmemory
+    # Redis rejects writes (ingest answers an error, senders retry) instead of
+    # being OOM-killed by the container limit.
+    command: ["redis-server", "--appendonly", "yes", "--appendfsync", "everysec", "--maxmemory", "${HS_REDIS_MAXMEMORY:-256mb}", "--maxmemory-policy", "noeviction"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  pgdata:
+  redisdata:
+  keys:
+  caddy_data:
+  caddy_config:

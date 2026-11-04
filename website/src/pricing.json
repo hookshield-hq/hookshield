@@ -1,0 +1,9 @@
+{
+  "$comment": "HookShield Cloud plans shown on the pricing section. Must match hookshield-cloud/backend/internal/plans (a test there compares them). requests/maxRetries null = unlimited; monthlyCents null = custom contract.",
+  "plans": [
+    { "id": "developer", "monthlyCents": 0, "overageCentsPer10k": 0, "requests": 5000, "hardLimit": true, "maxRetries": 3, "retentionHours": 24 },
+    { "id": "pro", "monthlyCents": 2900, "overageCentsPer10k": 100, "requests": 100000, "hardLimit": false, "maxRetries": 10, "retentionHours": 720, "popular": true },
+    { "id": "business", "monthlyCents": 8900, "overageCentsPer10k": 80, "requests": 1000000, "hardLimit": false, "maxRetries": null, "retentionHours": 2160 },
+    { "id": "enterprise", "monthlyCents": null, "overageCentsPer10k": null, "requests": null, "hardLimit": false, "maxRetries": null, "retentionHours": 8760 }
+  ]
+}

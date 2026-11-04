@@ -1,0 +1,10 @@
+node_modules
+.next
+test-results
+playwright-report
+Dockerfile
+.dockerignore
+*.md
+# Secrets anywhere in the context (a bare .env only matches at the root)
+**/.env
+**/.env.*

@@ -1,0 +1,298 @@
+@import "tailwindcss";
+
+/* Dark mode is driven by the "dark" class next-themes puts on <html>. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * Design tokens — the same as the dashboard (web/src/app/globals.css). Components use the
+ * semantic names (bg-bg, bg-surface, text-fg, text-muted, border-line, …),
+ * never raw colors, so both themes stay consistent.
+ */
+:root {
+  /* Light theme: white background, slate borders and text, violet → cyan accent. */
+  --hs-bg: #ffffff;
+  --hs-surface: rgba(248, 250, 252, 0.8);
+  --hs-surface-strong: #ffffff;
+  --hs-overlay: rgba(15, 23, 42, 0.35);
+  --hs-line: #e2e8f0;
+  --hs-fg: #0f172a;
+  --hs-muted: #475569;
+  --hs-subtle: #5b6b82; /* ≥ 4.5:1 on every light surface (WCAG AA) */
+  --hs-hover: #f5f3ff;
+  --hs-accent-from: #7c3aed;
+  --hs-accent-to: #06b6d4;
+  --hs-accent: #7c3aed;
+  --hs-success: #047857;
+  --hs-success-bg: rgba(16, 185, 129, 0.12);
+  --hs-warning: #a14b07;
+  --hs-warning-bg: rgba(245, 158, 11, 0.14);
+  --hs-danger: #b91c1c;
+  --hs-danger-bg: rgba(239, 68, 68, 0.12);
+  --hs-info: #0e7490;
+  --hs-info-bg: rgba(6, 182, 212, 0.12);
+  --hs-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 24px rgba(15, 23, 42, 0.06);
+}
+
+.dark {
+  /* Dark theme (default): exactly the values of the design spec. */
+  --hs-bg: #090d16;
+  --hs-surface: rgba(15, 23, 42, 0.65);
+  --hs-surface-strong: #0f172a;
+  --hs-overlay: rgba(2, 6, 23, 0.6);
+  --hs-line: rgba(255, 255, 255, 0.08);
+  --hs-fg: #f8fafc;
+  --hs-muted: #94a3b8;
+  --hs-subtle: #7c8ba1; /* ≥ 4.5:1 on every dark surface (WCAG AA) */
+  --hs-hover: rgba(139, 92, 246, 0.1);
+  --hs-accent-from: #8b5cf6;
+  --hs-accent-to: #06b6d4;
+  --hs-accent: #a78bfa;
+  --hs-success: #10b981;
+  --hs-success-bg: rgba(16, 185, 129, 0.15);
+  --hs-warning: #f59e0b;
+  --hs-warning-bg: rgba(245, 158, 11, 0.15);
+  --hs-danger: #f87171;
+  --hs-danger-bg: rgba(239, 68, 68, 0.15);
+  --hs-info: #22d3ee;
+  --hs-info-bg: rgba(6, 182, 212, 0.15);
+  --hs-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 12px 32px rgba(0, 0, 0, 0.35);
+}
+
+@theme inline {
+  --color-bg: var(--hs-bg);
+  --color-surface: var(--hs-surface);
+  --color-surface-strong: var(--hs-surface-strong);
+  --color-overlay: var(--hs-overlay);
+  --color-line: var(--hs-line);
+  --color-fg: var(--hs-fg);
+  --color-muted: var(--hs-muted);
+  --color-subtle: var(--hs-subtle);
+  --color-hover: var(--hs-hover);
+  --color-accent: var(--hs-accent);
+  --color-accent-from: var(--hs-accent-from);
+  --color-accent-to: var(--hs-accent-to);
+  --color-success: var(--hs-success);
+  --color-success-bg: var(--hs-success-bg);
+  --color-warning: var(--hs-warning);
+  --color-warning-bg: var(--hs-warning-bg);
+  --color-danger: var(--hs-danger);
+  --color-danger-bg: var(--hs-danger-bg);
+  --color-info: var(--hs-info);
+  --color-info-bg: var(--hs-info-bg);
+  --shadow-glass: var(--hs-shadow);
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+  /* Interactions: at most 150 ms, ease-out (design principle). */
+  --default-transition-duration: 150ms;
+  --default-transition-timing-function: cubic-bezier(0, 0, 0.2, 1);
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+  html:not(.dark) {
+    color-scheme: light;
+  }
+  body {
+    background: var(--hs-bg);
+    color: var(--hs-fg);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  :focus-visible {
+    outline: 2px solid var(--hs-accent);
+    outline-offset: 2px;
+  }
+  ::selection {
+    background: color-mix(in srgb, var(--hs-accent-from) 35%, transparent);
+  }
+}
+
+@utility glass {
+  background: var(--hs-surface);
+  border: 1px solid var(--hs-line);
+  box-shadow: var(--hs-shadow);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* Floating panels (palette, menus, modals, drawers): solid enough to read over any page. */
+@utility panel {
+  background: color-mix(in srgb, var(--hs-surface-strong) 96%, transparent);
+  border: 1px solid var(--hs-line);
+  box-shadow: var(--hs-shadow), 0 24px 48px rgba(2, 6, 23, 0.18);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+@utility bg-accent-gradient {
+  background-image: linear-gradient(90deg, var(--hs-accent-from), var(--hs-accent-to));
+}
+
+@utility text-accent-gradient {
+  background-image: linear-gradient(90deg, var(--hs-accent-from), var(--hs-accent-to));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 5rem; /* anchors land below the sticky header */
+}
+
+/* Soft glow behind the hero and section headings. */
+@utility hero-glow {
+  background:
+    radial-gradient(60% 50% at 50% 0%, color-mix(in srgb, var(--hs-accent-from) 22%, transparent), transparent 70%),
+    radial-gradient(40% 40% at 85% 20%, color-mix(in srgb, var(--hs-accent-to) 14%, transparent), transparent 70%);
+}
+
+@utility grid-fade {
+  background-image:
+    linear-gradient(to right, var(--hs-line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--hs-line) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(70% 60% at 50% 0%, black, transparent 75%);
+}
+
+/* ── Docs: rendered Markdown ─────────────────────────────── */
+.prose {
+  color: var(--hs-fg);
+  line-height: 1.7;
+  font-size: 0.975rem;
+  min-width: 0;
+}
+.prose > * + * {
+  margin-top: 1rem;
+}
+.prose h2 {
+  margin-top: 2.5rem;
+  padding-top: 0.5rem;
+  font-size: 1.45rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  border-top: 1px solid var(--hs-line);
+}
+.prose h3 {
+  margin-top: 2rem;
+  font-size: 1.15rem;
+  font-weight: 620;
+}
+.prose h4 {
+  margin-top: 1.5rem;
+  font-weight: 600;
+}
+.prose h2 .anchor,
+.prose h3 .anchor,
+.prose h4 .anchor {
+  margin-left: 0.4rem;
+  color: var(--hs-subtle);
+  text-decoration: none;
+  opacity: 0;
+}
+.prose h2:hover .anchor,
+.prose h3:hover .anchor,
+.prose h4:hover .anchor {
+  opacity: 1;
+}
+.prose a {
+  color: var(--hs-accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-thickness: 1px;
+}
+.prose a:hover {
+  text-decoration-thickness: 2px;
+}
+.prose strong {
+  font-weight: 620;
+}
+.prose ul,
+.prose ol {
+  padding-left: 1.4rem;
+}
+.prose ul {
+  list-style: disc;
+}
+.prose ol {
+  list-style: decimal;
+}
+.prose li + li {
+  margin-top: 0.35rem;
+}
+.prose li > ul,
+.prose li > ol {
+  margin-top: 0.35rem;
+}
+.prose blockquote {
+  border-left: 3px solid var(--hs-accent-from);
+  padding: 0.25rem 0 0.25rem 1rem;
+  color: var(--hs-muted);
+}
+.prose hr {
+  border-color: var(--hs-line);
+  margin: 2rem 0;
+}
+.prose :not(pre) > code {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  padding: 0.1rem 0.35rem;
+  border-radius: 0.35rem;
+  background: var(--hs-hover);
+  border: 1px solid var(--hs-line);
+  overflow-wrap: anywhere;
+}
+.prose pre {
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  line-height: 1.6;
+  padding: 1rem 1.1rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--hs-line);
+  overflow-x: auto;
+  background: var(--hs-surface-strong) !important;
+}
+.prose table {
+  display: block;
+  width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+.prose th,
+.prose td {
+  border: 1px solid var(--hs-line);
+  padding: 0.45rem 0.7rem;
+  text-align: left;
+  vertical-align: top;
+}
+.prose th {
+  background: var(--hs-hover);
+  font-weight: 600;
+}
+.prose img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Shiki emits both themes as CSS variables; pick one per theme. */
+.shiki,
+.shiki span {
+  color: var(--shiki-light);
+}
+.dark .shiki,
+.dark .shiki span {
+  color: var(--shiki-dark);
+}

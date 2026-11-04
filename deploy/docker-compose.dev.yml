@@ -1,0 +1,50 @@
+# Local development dependencies for HookShield (native mode):
+# PostgreSQL, Redis and Mailpit (catches alert emails).
+# Usage (from the repo root): make dev-up  |  make dev-down
+# Ports are published on 127.0.0.1 only (fixed dev passwords).
+name: hookshield-dev
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: hookshield
+      POSTGRES_PASSWORD: hookshield
+      POSTGRES_DB: hookshield
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hookshield -d hookshield"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  mailpit:
+    image: axllent/mailpit:v1.21
+    ports:
+      - "127.0.0.1:1025:1025"   # SMTP (HS_SMTP_URL=smtp://localhost:1025)
+      - "127.0.0.1:8025:8025"   # web UI with every alert email
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8025/livez"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pgdata:
+  redisdata:

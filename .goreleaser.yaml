@@ -1,0 +1,60 @@
+# Releases of the hookshield CLI (login, listen, trigger, endpoints, sink).
+# Run by .github/workflows/release-cli.yml on every v* tag:
+#   GitHub release with archives for Linux, macOS and Windows (amd64 + arm64)
+#   and checksums.txt. scripts/install.sh installs from these archives.
+# Try it locally: goreleaser release --snapshot --clean   (→ dist/)
+version: 2
+
+project_name: hookshield
+
+builds:
+  - id: hookshield
+    dir: backend
+    main: ./cmd/hookshield
+    binary: hookshield
+    env:
+      - CGO_ENABLED=0
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+      - -X github.com/hookshield-hq/hookshield/backend/internal/version.Version={{ .Version }}
+      - -X github.com/hookshield-hq/hookshield/backend/internal/version.Commit={{ .ShortCommit }}
+
+archives:
+  - id: cli
+    ids: [hookshield]
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    # hookshield_1.2.3_linux_amd64.tar.gz — scripts/install.sh relies on this name.
+    name_template: "hookshield_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - LICENSE
+      - docs/CLI.md
+
+checksum:
+  name_template: checksums.txt
+  algorithm: sha256
+
+changelog:
+  use: github
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+
+release:
+  github:
+    owner: hookshield-hq
+    name: hookshield
+  prerelease: auto
+  footer: |
+    **Install the CLI:** `curl -fsSL https://raw.githubusercontent.com/hookshield-hq/hookshield/main/scripts/install.sh | sh`
+    or `go install github.com/hookshield-hq/hookshield/backend/cmd/hookshield@latest` (builds the latest commit of `main`: the Go module lives in `backend/` and has no `backend/v*` tags; the archives above are this exact release).
+    Docker images: `ghcr.io/hookshield-hq/hookshield:{{ .Version }}` (all-in-one), `-backend`, `-web`.

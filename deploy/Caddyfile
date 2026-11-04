@@ -1,0 +1,30 @@
+# HookShield behind one domain. Caddy gets and renews the HTTPS certificate
+# (Let's Encrypt; ports 80 and 443 must reach this server and HS_DOMAIN must
+# point to it).
+
+{$HS_DOMAIN} {
+	# API (the dashboard calls it on the same origin; /v1/live is a live SSE feed)
+	handle /v1/* {
+		reverse_proxy api:8081
+	}
+	# Ingest: https://{$HS_DOMAIN}/in/v1/{slug} → ingest's /v1/{slug}
+	handle_path /in/* {
+		reverse_proxy ingest:8080
+	}
+	# Dashboard
+	handle {
+		encode zstd gzip
+		reverse_proxy web:3000
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		-Server
+	}
+	log {
+		output stdout
+		format json
+	}
+}

@@ -1,0 +1,4381 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "HookShield control-plane API",
+    "version": "1.0.0",
+    "description": "REST API of the HookShield dashboard. Errors always look like {\"error\":{\"code\":\"…\"}} with stable, translatable codes. Narrative guide: docs/API.md. Every operation declares `x-access` (public, read, operate, admin, session); a test keeps this document in sync with the routes the server registers.",
+    "license": {
+      "name": "MIT",
+      "identifier": "MIT"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8081",
+      "description": "Local development (HS_API_URL)"
+    }
+  ],
+  "tags": [
+    {
+      "name": "auth"
+    },
+    {
+      "name": "account"
+    },
+    {
+      "name": "endpoints"
+    },
+    {
+      "name": "secrets"
+    },
+    {
+      "name": "alerts"
+    },
+    {
+      "name": "transform"
+    },
+    {
+      "name": "logs"
+    },
+    {
+      "name": "metrics"
+    },
+    {
+      "name": "search"
+    },
+    {
+      "name": "api-keys"
+    },
+    {
+      "name": "billing"
+    },
+    {
+      "name": "health"
+    },
+    {
+      "name": "meta"
+    }
+  ],
+  "paths": {
+    "/healthz": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "operationId": "healthz",
+        "summary": "Liveness",
+        "x-access": "public",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            }
+          }
+        },
+        "description": "Served by every service (api, ingest, worker)."
+      }
+    },
+    "/readyz": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "operationId": "readyz",
+        "summary": "Readiness (database, Redis)",
+        "x-access": "public",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A dependency is down",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/openapi.json": {
+      "get": {
+        "tags": [
+          "meta"
+        ],
+        "operationId": "getOpenAPI",
+        "summary": "This document",
+        "x-access": "public",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "OpenAPI 3.1 document",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/providers": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "operationId": "getAuthProviders",
+        "summary": "Sign-in methods offered",
+        "x-access": "public",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "password": {
+                      "type": "boolean"
+                    },
+                    "google": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "password",
+                    "google"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/features": {
+      "get": {
+        "tags": [
+          "meta"
+        ],
+        "operationId": "getFeatures",
+        "summary": "Optional features of this server (the dashboard shows the billing page only when billing is true)",
+        "x-access": "public",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "billing": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "billing"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/register": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "operationId": "register",
+        "summary": "Create an account (signs in)",
+        "x-access": "public",
+        "security": [],
+        "responses": {
+          "201": {
+            "description": "Created; sets the hs_session cookie and sends a verification email",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/Invalid"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 10,
+                    "maxLength": 256
+                  },
+                  "name": {
+                    "type": "string",
+                    "maxLength": 100
+                  },
+                  "locale": {
+                    "type": "string",
+                    "enum": [
+                      "en",
+                      "pt-BR",
+                      "es"
+                    ]
+                  }
+                },
+                "required": [
+                  "email",
+                  "password"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/login": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "operationId": "login",
+        "summary": "Sign in with email and password",
+        "x-access": "public",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Signed in; sets the hs_session cookie",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooMany"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string"
+                  },
+                  "password": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "email",
+                  "password"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/logout": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "operationId": "logout",
+        "summary": "Sign out",
+        "x-access": "public",
+        "security": [],
+        "responses": {
+          "204": {
+            "description": "Done"
+          }
+        }
+      }
+    },
+    "/v1/auth/verify-email": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "operationId": "verifyEmail",
+        "summary": "Confirm the email address",
+        "x-access": "public",
+        "security": [],
+        "responses": {
+          "204": {
+            "description": "Done"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "token": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "token"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/forgot-password": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "operationId": "forgotPassword",
+        "summary": "Send a password-reset email",
+        "x-access": "public",
+        "security": [],
+        "responses": {
+          "202": {
+            "description": "Always, whether the account exists or not"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "email"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/reset-password": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "operationId": "resetPassword",
+        "summary": "Set a new password with a reset token (signs out everywhere)",
+        "x-access": "public",
+        "security": [],
+        "responses": {
+          "204": {
+            "description": "Done"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "422": {
+            "$ref": "#/components/responses/Invalid"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "token": {
+                    "type": "string"
+                  },
+                  "password": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "token",
+                  "password"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/google/start": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "operationId": "googleStart",
+        "summary": "Start Google sign-in (browser navigation)",
+        "x-access": "public",
+        "security": [],
+        "responses": {
+          "302": {
+            "description": "Redirect to Google"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "parameters": [
+          {
+            "name": "redirect",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "description": "Same-site path to return to, e.g. /endpoints"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/auth/google/callback": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "operationId": "googleCallback",
+        "summary": "Google redirects here",
+        "x-access": "public",
+        "security": [],
+        "responses": {
+          "302": {
+            "description": "Redirect to the dashboard, or to HS_APP_URL/login?error=<code>"
+          }
+        },
+        "parameters": [
+          {
+            "name": "code",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "error",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/auth/resend-verification": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "operationId": "resendVerification",
+        "summary": "Send a new verification email",
+        "x-access": "session",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Sent (at most one per minute)"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "description": "Dashboard session only."
+      }
+    },
+    "/v1/auth/change-password": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "operationId": "changePassword",
+        "summary": "Change the password (other sessions are signed out)",
+        "x-access": "session",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Done"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "422": {
+            "$ref": "#/components/responses/Invalid"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "description": "Dashboard session only.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "current_password": {
+                    "type": "string"
+                  },
+                  "new_password": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "current_password",
+                  "new_password"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/me": {
+      "get": {
+        "tags": [
+          "account"
+        ],
+        "operationId": "getMe",
+        "summary": "The signed-in user",
+        "x-access": "read",
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "description": "Session or any API key."
+      },
+      "patch": {
+        "tags": [
+          "account"
+        ],
+        "operationId": "updateMe",
+        "summary": "Update name, language or theme",
+        "x-access": "session",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "422": {
+            "$ref": "#/components/responses/Invalid"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "description": "Dashboard session only.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "maxLength": 100
+                  },
+                  "locale": {
+                    "type": "string",
+                    "enum": [
+                      "en",
+                      "pt-BR",
+                      "es"
+                    ]
+                  },
+                  "theme_preference": {
+                    "type": "string",
+                    "enum": [
+                      "dark",
+                      "light",
+                      "system"
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/endpoints": {
+      "get": {
+        "tags": [
+          "endpoints"
+        ],
+        "operationId": "listEndpoints",
+        "summary": "List endpoints (newest first)",
+        "x-access": "read",
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "endpoints": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Endpoint"
+                      }
+                    }
+                  },
+                  "required": [
+                    "endpoints"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "description": "Session or any API key."
+      },
+      "post": {
+        "tags": [
+          "endpoints"
+        ],
+        "operationId": "createEndpoint",
+        "summary": "Create an endpoint",
+        "x-access": "admin",
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created; secrets.token is shown once",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EndpointResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/Invalid"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "description": "Session or API key with scope `admin`.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EndpointInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/endpoints/{id}": {
+      "get": {
+        "tags": [
+          "endpoints"
+        ],
+        "operationId": "getEndpoint",
+        "summary": "Get an endpoint",
+        "x-access": "read",
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EndpointResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "description": "Session or any API key.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/id"
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "endpoints"
+        ],
+        "operationId": "updateEndpoint",
+        "summary": "Change an endpoint (only the fields sent)",
+        "x-access": "admin",
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EndpointResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/Invalid"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "description": "Session or API key with scope `admin`.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EndpointInput"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/id"
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "endpoints"
+        ],
+        "operationId": "deleteEndpoint",
+        "summary": "Delete an endpoint (its logs and channels too)",
+        "x-access": "admin",
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Done"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "description": "Session or API key with scope `admin`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/id"
+          }
+        ]
+      }
+    },
+    "/v1/endpoints/{id}/rotate-secret": {
+      "post": {
+        "tags": [
+          "endpoints"
+        ],
+        "operationId": "rotateEndpointSecret",
+        "summary": "New inbound token (token mode) or HMAC secret (hmac mode)",
+        "x-access": "admin",
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EndpointResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "description": "Session or API key with scope `admin`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/id"
+          }
+        ]
+      }
+    },
+    "/v1/endpoints/{id}/test": {
+      "post": {
+        "tags": [
+          "endpoints"
+        ],
+        "operationId": "testEndpoint",
+        "summary": "Send a test webhook through the whole pipeline (sandbox, onboarding)",
+        "x-access": "operate",
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Queued as a new log",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "status": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/Invalid"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooMany"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "description": "Session or API key with scope `ingest` or `admin`.",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "method": {
+                    "type": "string",
+                    "enum": [
+                      "POST",
+                      "PUT",
+                      "PATCH"
+                    ],
+                    "default": "POST"
+                  },
+                  "body": {
+                    "description": "Any JSON value"
+                  },
+                  "body_text": {
+                    "type": "string"
+                  },
+                  "headers": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                },
+                "description": "Optional; omit to send a small JSON sample"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/id"
+          }
+        ]
+      }
+    },
+    "/v1/secrets": {
+      "get": {
+        "tags": [
+          "secrets"
+        ],
+        "operationId": "listSecrets",
+        "summary": "List secret names (never values)",
+        "x-access": "read",
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "secrets": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Secret"
+                      }
+                    }
+                  },
+                  "required": [
+                    "secrets"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "description": "Session or any API key."
+      }
+    },
+    "/v1/secrets/{name}": {
+      "put": {
+        "tags": [
+          "secrets"
+        ],
+        "operationId": "putSecret",
+        "summary": "Create or replace a secret",
+        "x-access": "admin",
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "secret": {
+                      "$ref": "#/components/schemas/Secret"
+                    }
+                  },
+                  "required": [
+                    "secret"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "422": {
+            "$ref": "#/components/responses/Invalid"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "description": "Session or API key with scope `admin`.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "value": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 8192
+                  }
+                },
+                "required": [
+                  "value"
+                ]
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/name"
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "secrets"
+        ],
+        "operationId": "deleteSecret",
+        "summary": "Delete a secret",
+        "x-access": "admin",
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Done"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "description": "Session or API key with scope `admin`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/name"
+          }
+        ]
+      }
+    },
+    "/v1/alert-channels": {
+      "get": {
+        "tags": [
+          "alerts"
+        ],
+        "operationId": "listAlertChannels",
+        "summary": "List alert channels (targets masked)",
+        "x-access": "read",
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "alert_channels": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/AlertChannel"
+                      }
+                    }
+                  },
+                  "required": [
+                    "alert_channels"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "description": "Session or any API key."
+      },
+      "post": {
+        "tags": [
+          "alerts"
+        ],
+        "operationId": "createAlertChannel",
+        "summary": "Create an alert channel",
+        "x-access": "admin",
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "alert_channel": {
+                      "$ref": "#/components/schemas/AlertChannel"
+                    }
+                  },
+                  "required": [
+                    "alert_channel"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "422": {
+            "$ref": "#/components/responses/Invalid"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "description": "Session or API key with scope `admin`.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "webhook",
+                      "slack",
+                      "telegram",
+                      "email"
+                    ]
+                  },
+                  "endpoint_id": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "target": {
+                    "$ref": "#/components/schemas/ChannelTarget"
+                  }
+                },
+                "required": [
+                  "type",
+                  "target"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/alert-channels/{id}": {
+      "patch": {
+        "tags": [
+          "alerts"
+        ],
+        "operationId": "updateAlertChannel",
+        "summary": "Change scope, state or target",
+        "x-access": "admin",
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "alert_channel": {
+                      "$ref": "#/components/schemas/AlertChannel"
+                    }
+                  },
+                  "required": [
+                    "alert_channel"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/Invalid"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "description": "Session or API key with scope `admin`.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "endpoint_id": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "target": {
+                    "$ref": "#/components/schemas/ChannelTarget"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/id"
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "alerts"
+        ],
+        "operationId": "deleteAlertChannel",
+        "summary": "Delete an alert channel",
+        "x-access": "admin",
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Done"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "description": "Session or API key with scope `admin`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/id"
+          }
+        ]
+      }
+    },
+    "/v1/transform/preview": {
+      "post": {
+        "tags": [
+          "transform"
+        ],
+        "operationId": "previewTransform",
+        "summary": "Run rules over a sample request (nothing is saved)",
+        "x-access": "read",
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "request": {
+                      "type": "object",
+                      "properties": {
+                        "headers": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "body": {
+                          "description": "Any JSON value"
+                        },
+                        "body_text": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "warnings": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "request",
+                    "warnings"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "422": {
+            "$ref": "#/components/responses/Invalid"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "description": "Session or any API key.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "rules": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/components/schemas/TransformRules"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "request": {
+                    "type": "object",
+                    "properties": {
+                      "headers": {
+                        "type": "object",
+                        "additionalProperties": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            }
+                          ]
+                        }
+                      },
+                      "body": {
+                        "description": "Any JSON value"
+                      },
+                      "body_text": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/logs": {
+      "get": {
+        "tags": [
+          "logs"
+        ],
+        "operationId": "listLogs",
+        "summary": "List webhook logs (newest first, keyset pagination)",
+        "x-access": "read",
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "logs": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/LogSummary"
+                      }
+                    },
+                    "next_cursor": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "logs",
+                    "next_cursor"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "$ref": "#/components/responses/Invalid"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "description": "Session or any API key.",
+        "parameters": [
+          {
+            "name": "endpoint_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "One endpoint"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Comma-separated statuses"
+          },
+          {
+            "name": "event_type",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Exact event type"
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Log ID prefix or part of the event type"
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "description": "Inclusive"
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "description": "Exclusive"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 50
+            },
+            "description": "Page size"
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "next_cursor of the previous page"
+          }
+        ]
+      }
+    },
+    "/v1/logs/{id}": {
+      "get": {
+        "tags": [
+          "logs"
+        ],
+        "operationId": "getLog",
+        "summary": "Request debugger: decrypted request, transformed request, attempts",
+        "x-access": "read",
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LogDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "description": "Session or any API key.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/id"
+          },
+          {
+            "name": "raw",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true"
+              ]
+            },
+            "description": "Every body as body_base64, byte for byte (used by `hookshield listen` to forward exactly what was received)"
+          }
+        ]
+      }
+    },
+    "/v1/logs/{id}/replay": {
+      "post": {
+        "tags": [
+          "logs"
+        ],
+        "operationId": "replayLog",
+        "summary": "Send a stored webhook again (as received or edited)",
+        "x-access": "operate",
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Queued as a new log",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "replay_of": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "status": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "replay_of",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/Invalid"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooMany"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "description": "Session or API key with scope `ingest` or `admin`.",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "body": {
+                    "description": "Any JSON value"
+                  },
+                  "body_text": {
+                    "type": "string"
+                  },
+                  "headers": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                },
+                "description": "Optional; omit to replay as received"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/id"
+          }
+        ]
+      }
+    },
+    "/v1/billing": {
+      "get": {
+        "tags": [
+          "billing"
+        ],
+        "operationId": "getBilling",
+        "summary": "Plan, subscription, usage of the month and the plan catalog",
+        "x-access": "session",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingOverview"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "description": "Mounted only on servers with billing (HookShield Cloud); self-hosted installs answer 404. Dashboard session only."
+      }
+    },
+    "/v1/billing/checkout": {
+      "post": {
+        "tags": [
+          "billing"
+        ],
+        "operationId": "billingCheckout",
+        "summary": "Subscribe to a plan (checkout URL) or switch the current subscription",
+        "x-access": "session",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "url": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "description": "Provider checkout page; null when an existing subscription was switched",
+                          "format": "uri"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "subscription": {
+                      "anyOf": [
+                        {
+                          "$ref": "#/components/schemas/BillingSubscription"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "url",
+                    "subscription"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/Invalid"
+          },
+          "502": {
+            "description": "billing.provider_error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "description": "Mounted only on servers with billing (HookShield Cloud); self-hosted installs answer 404. Dashboard session only.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "plan": {
+                    "type": "string",
+                    "enum": [
+                      "pro",
+                      "business"
+                    ]
+                  }
+                },
+                "required": [
+                  "plan"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/billing/portal": {
+      "post": {
+        "tags": [
+          "billing"
+        ],
+        "operationId": "billingPortal",
+        "summary": "Customer portal URL (payment method, invoices, cancellation)",
+        "x-access": "session",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "url": {
+                      "type": "string",
+                      "format": "uri"
+                    }
+                  },
+                  "required": [
+                    "url"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "502": {
+            "description": "billing.provider_error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "description": "Mounted only on servers with billing (HookShield Cloud); self-hosted installs answer 404. Dashboard session only."
+      }
+    },
+    "/v1/billing/webhook": {
+      "post": {
+        "tags": [
+          "billing"
+        ],
+        "operationId": "billingWebhook",
+        "summary": "Billing provider notifications (authenticated by signature)",
+        "x-access": "public",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/Invalid"
+          },
+          "413": {
+            "description": "billing.payload_too_large"
+          }
+        },
+        "description": "Mounted only on servers with billing (HookShield Cloud); self-hosted installs answer 404. Called by the provider, not by the dashboard.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          },
+          "description": "Raw provider payload"
+        }
+      }
+    },
+    "/v1/metrics/summary": {
+      "get": {
+        "tags": [
+          "metrics"
+        ],
+        "operationId": "getMetricsSummary",
+        "summary": "Dashboard cards",
+        "x-access": "read",
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetricsSummary"
+                }
+              }
+            }
+          },
+          "422": {
+            "$ref": "#/components/responses/Invalid"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "description": "Session or any API key.",
+        "parameters": [
+          {
+            "name": "range",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1h",
+                "24h",
+                "7d",
+                "30d"
+              ],
+              "default": "24h"
+            },
+            "description": "Time window"
+          },
+          {
+            "name": "endpoint_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "One endpoint"
+          }
+        ]
+      }
+    },
+    "/v1/metrics/series": {
+      "get": {
+        "tags": [
+          "metrics"
+        ],
+        "operationId": "getMetricsSeries",
+        "summary": "Traffic chart",
+        "x-access": "read",
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetricsSeries"
+                }
+              }
+            }
+          },
+          "422": {
+            "$ref": "#/components/responses/Invalid"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "description": "Session or any API key.",
+        "parameters": [
+          {
+            "name": "range",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1h",
+                "24h",
+                "7d",
+                "30d"
+              ],
+              "default": "24h"
+            },
+            "description": "Time window"
+          },
+          {
+            "name": "endpoint_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "One endpoint"
+          }
+        ]
+      }
+    },
+    "/v1/metrics/endpoints": {
+      "get": {
+        "tags": [
+          "metrics"
+        ],
+        "operationId": "getEndpointMetrics",
+        "summary": "Per-endpoint success rate",
+        "x-access": "read",
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EndpointMetrics"
+                }
+              }
+            }
+          },
+          "422": {
+            "$ref": "#/components/responses/Invalid"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "description": "Session or any API key.",
+        "parameters": [
+          {
+            "name": "range",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1h",
+                "24h",
+                "7d",
+                "30d"
+              ],
+              "default": "24h"
+            },
+            "description": "Time window"
+          }
+        ]
+      }
+    },
+    "/v1/status": {
+      "get": {
+        "tags": [
+          "metrics"
+        ],
+        "operationId": "getStatus",
+        "summary": "Cluster status (database, Redis, queues)",
+        "x-access": "read",
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Status"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "description": "Session or any API key."
+      }
+    },
+    "/v1/search": {
+      "get": {
+        "tags": [
+          "search"
+        ],
+        "operationId": "search",
+        "summary": "Global search (⌘K)",
+        "x-access": "read",
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "endpoints": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "slug": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "name",
+                          "slug",
+                          "status"
+                        ]
+                      }
+                    },
+                    "logs": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/LogSummary"
+                      }
+                    },
+                    "secrets": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Secret"
+                      }
+                    }
+                  },
+                  "required": [
+                    "endpoints",
+                    "logs",
+                    "secrets"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "$ref": "#/components/responses/Invalid"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "description": "Session or any API key.",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 100
+            },
+            "description": "Search text"
+          }
+        ]
+      }
+    },
+    "/v1/live": {
+      "get": {
+        "tags": [
+          "logs"
+        ],
+        "operationId": "liveFeed",
+        "summary": "Live feed of log events (Server-Sent Events)",
+        "x-access": "read",
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "text/event-stream with events log.created and log.updated (data = JSON without payloads); ': ping' every 15 s",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "$ref": "#/components/responses/Invalid"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "description": "Use EventSource with withCredentials: true. Session or any API key.",
+        "parameters": [
+          {
+            "name": "endpoint_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "One endpoint"
+          }
+        ]
+      }
+    },
+    "/v1/api-keys": {
+      "get": {
+        "tags": [
+          "api-keys"
+        ],
+        "operationId": "listAPIKeys",
+        "summary": "List API keys",
+        "x-access": "session",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "api_keys": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/APIKey"
+                      }
+                    }
+                  },
+                  "required": [
+                    "api_keys"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "description": "Dashboard session only."
+      },
+      "post": {
+        "tags": [
+          "api-keys"
+        ],
+        "operationId": "createAPIKey",
+        "summary": "Create an API key (the key is shown once)",
+        "x-access": "session",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "api_key": {
+                      "$ref": "#/components/schemas/APIKey"
+                    },
+                    "key": {
+                      "type": "string",
+                      "description": "hs_live_… — shown once"
+                    }
+                  },
+                  "required": [
+                    "api_key",
+                    "key"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "422": {
+            "$ref": "#/components/responses/Invalid"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "description": "Dashboard session only.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "scope": {
+                    "type": "string",
+                    "enum": [
+                      "read_only",
+                      "ingest",
+                      "admin"
+                    ]
+                  },
+                  "expires_in_days": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 3650
+                  }
+                },
+                "required": [
+                  "name",
+                  "scope"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/api-keys/{id}": {
+      "delete": {
+        "tags": [
+          "api-keys"
+        ],
+        "operationId": "revokeAPIKey",
+        "summary": "Revoke an API key",
+        "x-access": "session",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Done"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "description": "Dashboard session only.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/id"
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "sessionCookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "hs_session",
+        "description": "Dashboard session (set by register, login and Google sign-in). State-changing requests also need an allowed Origin header (CSRF)."
+      },
+      "apiKey": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "API key hs_live_…; scopes read_only, ingest, admin (see x-access)."
+      }
+    },
+    "parameters": {
+      "id": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "name": {
+        "name": "name",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9_]{0,63}$"
+        }
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "Malformed JSON or unknown field (validation.invalid_json)",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "No valid session or API key (auth.unauthorized, auth.invalid_credentials)",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "Forbidden": {
+        "description": "auth.csrf, auth.insufficient_scope or auth.session_required",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "Not found — also for resources of other accounts",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "Conflict": {
+        "description": "e.g. auth.email_taken, endpoint.slug_taken, endpoint.no_secret_to_rotate, endpoint.paused, log.key_unavailable",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "Invalid": {
+        "description": "Validation error; some codes include details",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "TooMany": {
+        "description": "auth.too_many_attempts, rate_limited or quota_exceeded",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "BillingSubscription": {
+        "type": "object",
+        "properties": {
+          "plan": {
+            "type": "string",
+            "enum": [
+              "developer",
+              "pro",
+              "business",
+              "enterprise"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "trialing",
+              "past_due",
+              "cancelled",
+              "paused",
+              "unpaid",
+              "expired"
+            ]
+          },
+          "renews_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ends_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "test_mode": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "plan",
+          "status",
+          "renews_at",
+          "ends_at",
+          "test_mode"
+        ]
+      },
+      "BillingOffer": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "monthly_price_cents": {
+            "type": "integer"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "overage_price_cents": {
+            "type": "integer"
+          },
+          "overage_unit": {
+            "type": "integer"
+          },
+          "purchasable": {
+            "type": "boolean"
+          },
+          "contact_url": {
+            "type": "string"
+          },
+          "limits": {
+            "type": "object",
+            "properties": {
+              "monthly_requests": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "hard_limit": {
+                "type": "boolean"
+              },
+              "max_retries": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "retention_hours": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "monthly_requests",
+              "hard_limit",
+              "max_retries",
+              "retention_hours"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "monthly_price_cents",
+          "currency",
+          "overage_price_cents",
+          "overage_unit",
+          "purchasable",
+          "contact_url",
+          "limits"
+        ]
+      },
+      "BillingOverview": {
+        "type": "object",
+        "properties": {
+          "plan": {
+            "type": "string"
+          },
+          "subscription": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BillingSubscription"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "usage": {
+            "type": "object",
+            "properties": {
+              "period_start": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "period_end": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "requests": {
+                "type": "integer"
+              },
+              "included": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "description": "null = unlimited"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "hard_limit": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "period_start",
+              "period_end",
+              "requests",
+              "included",
+              "hard_limit"
+            ]
+          },
+          "offers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BillingOffer"
+            }
+          }
+        },
+        "required": [
+          "plan",
+          "subscription",
+          "usage",
+          "offers"
+        ]
+      },
+      "BodyRule": {
+        "type": "object",
+        "properties": {
+          "op": {
+            "type": "string",
+            "enum": [
+              "remove",
+              "rename",
+              "copy",
+              "set",
+              "set_timestamp",
+              "keep"
+            ]
+          },
+          "path": {
+            "type": "string"
+          },
+          "from": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          },
+          "value": {
+            "description": "Any JSON value"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "rfc3339",
+              "unix",
+              "unix_ms"
+            ]
+          },
+          "paths": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "op"
+        ],
+        "description": "See docs/TRANSFORM.md"
+      },
+      "HeaderRule": {
+        "type": "object",
+        "properties": {
+          "op": {
+            "type": "string",
+            "enum": [
+              "remove",
+              "rename",
+              "set"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "from": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "op"
+        ]
+      },
+      "TransformRules": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "integer",
+            "enum": [
+              1
+            ]
+          },
+          "body": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BodyRule"
+            }
+          },
+          "headers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HeaderRule"
+            }
+          }
+        },
+        "description": "Declarative transform rules (docs/TRANSFORM.md); {} when the endpoint has none"
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "description": "Stable, translatable code, e.g. auth.invalid_credentials"
+              },
+              "details": {
+                "description": "Any JSON value"
+              }
+            },
+            "required": [
+              "code"
+            ]
+          }
+        },
+        "required": [
+          "error"
+        ]
+      },
+      "User": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "name": {
+            "type": "string"
+          },
+          "email_verified": {
+            "type": "boolean"
+          },
+          "has_password": {
+            "type": "boolean",
+            "description": "false for Google-only accounts"
+          },
+          "locale": {
+            "type": "string",
+            "enum": [
+              "en",
+              "pt-BR",
+              "es"
+            ]
+          },
+          "theme_preference": {
+            "type": "string",
+            "enum": [
+              "dark",
+              "light",
+              "system"
+            ]
+          },
+          "plan_type": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "name",
+          "email_verified",
+          "has_password",
+          "locale",
+          "theme_preference",
+          "plan_type",
+          "created_at"
+        ]
+      },
+      "UserEnvelope": {
+        "type": "object",
+        "properties": {
+          "user": {
+            "$ref": "#/components/schemas/User"
+          }
+        },
+        "required": [
+          "user"
+        ]
+      },
+      "EndpointAuth": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "token",
+              "hmac",
+              "ip_allowlist"
+            ]
+          },
+          "header": {
+            "type": "string"
+          },
+          "token_prefix": {
+            "type": "string",
+            "description": "Visible prefix of the current token (token mode)"
+          },
+          "hmac_header": {
+            "type": "string"
+          },
+          "ip_allowlist": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "mode",
+          "header",
+          "ip_allowlist"
+        ]
+      },
+      "Retry": {
+        "type": "object",
+        "properties": {
+          "strategy": {
+            "type": "string",
+            "enum": [
+              "fixed",
+              "exponential",
+              "custom"
+            ]
+          },
+          "max_retries": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "initial_interval_ms": {
+            "type": "integer",
+            "minimum": 1000
+          },
+          "multiplier": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 10
+          },
+          "max_delay_ms": {
+            "type": "integer"
+          },
+          "custom_schedule_ms": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          }
+        },
+        "required": [
+          "strategy",
+          "max_retries",
+          "initial_interval_ms",
+          "multiplier",
+          "max_delay_ms",
+          "custom_schedule_ms"
+        ]
+      },
+      "AlertConfig": {
+        "type": "object",
+        "properties": {
+          "threshold_failures": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "webhook_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uri"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "threshold_failures",
+          "webhook_url"
+        ]
+      },
+      "Endpoint": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "ingest_url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "target_url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "paused",
+              "debug"
+            ]
+          },
+          "auth": {
+            "$ref": "#/components/schemas/EndpointAuth"
+          },
+          "outbound_headers": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "transform_rules": {
+            "$ref": "#/components/schemas/TransformRules"
+          },
+          "retry": {
+            "$ref": "#/components/schemas/Retry"
+          },
+          "dlq_enabled": {
+            "type": "boolean"
+          },
+          "alert": {
+            "$ref": "#/components/schemas/AlertConfig"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "description",
+          "slug",
+          "ingest_url",
+          "target_url",
+          "status",
+          "auth",
+          "outbound_headers",
+          "transform_rules",
+          "retry",
+          "dlq_enabled",
+          "alert",
+          "created_at",
+          "updated_at"
+        ]
+      },
+      "EndpointInput": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 1000
+          },
+          "slug": {
+            "type": "string",
+            "description": "Create only; never changes",
+            "pattern": "^[a-z0-9][a-z0-9_-]{2,99}$"
+          },
+          "target_url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "paused",
+              "debug"
+            ]
+          },
+          "auth": {
+            "type": "object",
+            "properties": {
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "token",
+                  "hmac",
+                  "ip_allowlist"
+                ]
+              },
+              "header": {
+                "type": "string"
+              },
+              "hmac_header": {
+                "type": "string"
+              },
+              "hmac_secret": {
+                "type": "string",
+                "description": "Provider's signing secret (8–512 bytes)"
+              },
+              "ip_allowlist": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "outbound_headers": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Values may reference {{secrets.NAME}}"
+          },
+          "transform_rules": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TransformRules"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "retry": {
+            "type": "object",
+            "properties": {
+              "strategy": {
+                "type": "string",
+                "enum": [
+                  "fixed",
+                  "exponential",
+                  "custom"
+                ]
+              },
+              "max_retries": {
+                "type": "integer"
+              },
+              "initial_interval_ms": {
+                "type": "integer"
+              },
+              "multiplier": {
+                "type": "number"
+              },
+              "max_delay_ms": {
+                "type": "integer"
+              },
+              "custom_schedule_ms": {
+                "type": "array",
+                "items": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "dlq_enabled": {
+            "type": "boolean"
+          },
+          "alert": {
+            "type": "object",
+            "properties": {
+              "threshold_failures": {
+                "type": "integer"
+              },
+              "webhook_url": {
+                "type": "string",
+                "description": "\"\" clears it"
+              }
+            }
+          }
+        },
+        "description": "POST: name and target_url required. PATCH: only the fields sent change.",
+        "additionalProperties": false
+      },
+      "GeneratedSecrets": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "description": "hs_in_… — shown once"
+          },
+          "hmac_secret": {
+            "type": "string",
+            "description": "Generated HMAC secret — shown once"
+          }
+        },
+        "description": "Present only when a secret was generated in this response"
+      },
+      "Warning": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "secret": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "code"
+        ]
+      },
+      "EndpointResponse": {
+        "type": "object",
+        "properties": {
+          "endpoint": {
+            "$ref": "#/components/schemas/Endpoint"
+          },
+          "secrets": {
+            "$ref": "#/components/schemas/GeneratedSecrets"
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Warning"
+            }
+          }
+        },
+        "required": [
+          "endpoint"
+        ]
+      },
+      "Secret": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]{0,63}$"
+          },
+          "reference": {
+            "type": "string",
+            "description": "Text to paste in a header: {{secrets.NAME}}"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "name",
+          "reference",
+          "created_at",
+          "updated_at"
+        ]
+      },
+      "ChannelTarget": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "webhook"
+          },
+          "webhook_url": {
+            "type": "string",
+            "description": "slack"
+          },
+          "bot_token": {
+            "type": "string",
+            "description": "telegram"
+          },
+          "chat_id": {
+            "type": "string",
+            "description": "telegram"
+          },
+          "to": {
+            "type": "string",
+            "description": "email (\"\" = account email)"
+          }
+        },
+        "description": "Fields depend on the channel type. Responses are masked."
+      },
+      "AlertChannel": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "webhook",
+              "slack",
+              "telegram",
+              "email"
+            ]
+          },
+          "endpoint_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "target": {
+            "$ref": "#/components/schemas/ChannelTarget"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "endpoint_id",
+          "enabled",
+          "target",
+          "created_at"
+        ]
+      },
+      "APIKey": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "prefix": {
+            "type": "string"
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "read_only",
+              "ingest",
+              "admin"
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "last_used_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "revoked_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "prefix",
+          "scope",
+          "created_at",
+          "last_used_at",
+          "expires_at",
+          "revoked_at"
+        ]
+      },
+      "RenderedBody": {
+        "type": "object",
+        "properties": {
+          "body": {
+            "description": "Any JSON value"
+          },
+          "body_text": {
+            "type": "string"
+          },
+          "body_base64": {
+            "type": "string",
+            "format": "byte"
+          }
+        },
+        "description": "Exactly one of body (JSON), body_text (UTF-8) or body_base64 (binary)"
+      },
+      "RenderedRequest": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/RenderedBody"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "method": {
+                "type": "string"
+              },
+              "query": {
+                "type": "string"
+              },
+              "headers": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "required": [
+              "method",
+              "query",
+              "headers"
+            ]
+          }
+        ]
+      },
+      "Latency": {
+        "type": "object",
+        "properties": {
+          "ingest_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "transform_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "persist_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "gateway_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "ingest_ms",
+          "transform_ms",
+          "persist_ms",
+          "gateway_ms"
+        ]
+      },
+      "LogSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "endpoint": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "name": {
+                "type": "string"
+              },
+              "slug": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "slug"
+            ]
+          },
+          "replay_of": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "method": {
+            "type": "string"
+          },
+          "event_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "content_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "size_bytes": {
+            "type": "integer"
+          },
+          "source_ip": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "processing",
+              "delivered",
+              "retrying",
+              "failed",
+              "dead"
+            ]
+          },
+          "attempts": {
+            "type": "integer"
+          },
+          "last_status_code": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "next_attempt_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "latency": {
+            "$ref": "#/components/schemas/Latency"
+          },
+          "received_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "delivered_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "endpoint",
+          "replay_of",
+          "method",
+          "event_type",
+          "content_type",
+          "size_bytes",
+          "source_ip",
+          "status",
+          "attempts",
+          "last_status_code",
+          "next_attempt_at",
+          "latency",
+          "received_at",
+          "delivered_at",
+          "expires_at"
+        ]
+      },
+      "Attempt": {
+        "type": "object",
+        "properties": {
+          "number": {
+            "type": "integer"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "duration_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status_code": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "response": {
+            "anyOf": [
+              {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/RenderedBody"
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "status": {
+                        "type": "integer"
+                      },
+                      "headers": {
+                        "type": "object",
+                        "additionalProperties": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "required": [
+                      "status",
+                      "headers"
+                    ]
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "number",
+          "started_at",
+          "duration_ms",
+          "status_code",
+          "error_code",
+          "response"
+        ]
+      },
+      "LogDetail": {
+        "type": "object",
+        "properties": {
+          "log": {
+            "$ref": "#/components/schemas/LogSummary"
+          },
+          "request": {
+            "type": "object",
+            "properties": {
+              "original": {
+                "$ref": "#/components/schemas/RenderedRequest"
+              },
+              "transformed": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/RenderedRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "original",
+              "transformed"
+            ]
+          },
+          "attempts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Attempt"
+            }
+          },
+          "replays": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "required": [
+          "log",
+          "request",
+          "attempts",
+          "replays"
+        ]
+      },
+      "MetricsSummary": {
+        "type": "object",
+        "properties": {
+          "range": {
+            "type": "string"
+          },
+          "since": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "total_received": {
+            "type": "integer"
+          },
+          "delivered": {
+            "type": "integer"
+          },
+          "failed": {
+            "type": "integer"
+          },
+          "in_flight": {
+            "type": "integer"
+          },
+          "active_retries": {
+            "type": "integer"
+          },
+          "delivery_rate": {
+            "anyOf": [
+              {
+                "type": "number",
+                "description": "Percent of finished webhooks delivered"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "avg_latency_ms": {
+            "type": "number"
+          },
+          "p95_latency_ms": {
+            "type": "number"
+          },
+          "avg_delivery_ms": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "range",
+          "since",
+          "total_received",
+          "delivered",
+          "failed",
+          "in_flight",
+          "active_retries",
+          "delivery_rate",
+          "avg_latency_ms",
+          "p95_latency_ms",
+          "avg_delivery_ms"
+        ]
+      },
+      "MetricsSeries": {
+        "type": "object",
+        "properties": {
+          "range": {
+            "type": "string"
+          },
+          "bucket_seconds": {
+            "type": "integer"
+          },
+          "points": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "received": {
+                  "type": "integer"
+                },
+                "delivered": {
+                  "type": "integer"
+                },
+                "failed": {
+                  "type": "integer"
+                },
+                "error_rate": {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "avg_latency_ms": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "at",
+                "received",
+                "delivered",
+                "failed",
+                "error_rate",
+                "avg_latency_ms"
+              ]
+            }
+          }
+        },
+        "required": [
+          "range",
+          "bucket_seconds",
+          "points"
+        ]
+      },
+      "EndpointMetrics": {
+        "type": "object",
+        "properties": {
+          "range": {
+            "type": "string"
+          },
+          "endpoints": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "endpoint_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "received": {
+                  "type": "integer"
+                },
+                "delivered": {
+                  "type": "integer"
+                },
+                "failed": {
+                  "type": "integer"
+                },
+                "success_rate": {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "last_received_at": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "endpoint_id",
+                "received",
+                "delivered",
+                "failed",
+                "success_rate",
+                "last_received_at"
+              ]
+            }
+          }
+        },
+        "required": [
+          "range",
+          "endpoints"
+        ]
+      },
+      "QueueStats": {
+        "type": "object",
+        "properties": {
+          "length": {
+            "type": "integer"
+          },
+          "waiting": {
+            "type": "integer"
+          },
+          "pending": {
+            "type": "integer"
+          },
+          "consumers": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "length",
+          "waiting",
+          "pending",
+          "consumers"
+        ]
+      },
+      "Status": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "operational",
+              "degraded"
+            ]
+          },
+          "database": {
+            "type": "string",
+            "enum": [
+              "up",
+              "down"
+            ]
+          },
+          "redis": {
+            "type": "string",
+            "enum": [
+              "up",
+              "down"
+            ]
+          },
+          "queues": {
+            "type": "object",
+            "properties": {
+              "ingest": {
+                "$ref": "#/components/schemas/QueueStats"
+              },
+              "dispatch": {
+                "$ref": "#/components/schemas/QueueStats"
+              },
+              "alerts": {
+                "$ref": "#/components/schemas/QueueStats"
+              },
+              "retry_scheduled": {
+                "type": "integer"
+              },
+              "dead_letters": {
+                "type": "integer"
+              }
+            }
+          },
+          "checked_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "status",
+          "database",
+          "redis",
+          "queues",
+          "checked_at"
+        ]
+      },
+      "Health": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "service": {
+            "type": "string"
+          },
+          "checks": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "status",
+          "service"
+        ]
+      }
+    }
+  }
+}

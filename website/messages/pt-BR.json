@@ -1,0 +1,254 @@
+{
+  "meta": {
+    "title": "HookShield — gateway de webhooks open source e zero-trust",
+    "description": "Receba, verifique, transforme, criptografe e entregue cada webhook com segurança. Retentativas, alertas e um debugger ao vivo. Hospede grátis em 1 clique ou use o HookShield Cloud."
+  },
+  "nav": {
+    "features": "Recursos",
+    "selfHost": "Self-host",
+    "pricing": "Preços",
+    "docs": "Docs",
+    "github": "GitHub",
+    "signIn": "Entrar",
+    "startFree": "Comece grátis",
+    "language": "Idioma",
+    "theme": "Alternar tema",
+    "menu": "Menu",
+    "skip": "Pular para o conteúdo",
+    "home": "Página inicial do HookShield"
+  },
+  "hero": {
+    "badge": "Open source · MIT",
+    "title": "Webhooks que nunca se perdem.",
+    "subtitle": "O HookShield fica na frente do seu app: verifica cada webhook na borda, transforma, criptografa com AES-256-GCM e entrega com retentativas, alertas e um debugger ao vivo.",
+    "primary": "Comece grátis no Cloud",
+    "secondary": "Hospede em 1 clique",
+    "note": "Plano gratuito no Cloud, sem cartão. Self-hosted é grátis para sempre, sem limites de plano.",
+    "screenshotAlt": "Painel do HookShield: requisições, taxa de entrega, latência e o feed ao vivo de webhooks"
+  },
+  "pipeline": {
+    "eyebrow": "Como funciona",
+    "title": "Um pipeline de borda na frente de cada endpoint",
+    "subtitle": "Quem envia recebe resposta em milissegundos. O resto acontece em segundo plano, criptografado.",
+    "steps": {
+      "guard": {
+        "title": "Guarda de token",
+        "body": "Token no header, assinatura HMAC ou lista de IPs. Chamadas inválidas recebem 401 antes de qualquer coisa ser gravada."
+      },
+      "transform": {
+        "title": "Transformação",
+        "body": "Remova, adicione, renomeie e formate campos e headers, com prévia ao vivo de entrada → saída."
+      },
+      "encrypt": {
+        "title": "Criptografia",
+        "body": "Corpo e headers são criptografados com AES-256-GCM antes mesmo de chegar à fila."
+      },
+      "deliver": {
+        "title": "Entrega",
+        "body": "Backoff exponencial, retentativas configuráveis, Retry-After, fila de mortos (DLQ) e reenvio em 1 clique."
+      },
+      "alert": {
+        "title": "Alerta",
+        "body": "Slack, Telegram, email ou webhook quando um destino continua falhando, agrupados para não virar spam."
+      }
+    },
+    "latency": "p99 de {ms} ms para aceitar um webhook",
+    "latencyNote": "Medido a 200 requisições/s numa máquina de 2 vCPU rodando tudo.",
+    "latencyLink": "Ver o benchmark"
+  },
+  "features": {
+    "eyebrow": "Recursos",
+    "title": "Tudo o que um webhook precisa entre quem envia e o seu app",
+    "items": {
+      "debugger": {
+        "title": "Debugger com linha do tempo",
+        "body": "Cada requisição com a latência de cada etapa, o payload original e o transformado, a resposta do destino e todas as tentativas."
+      },
+      "replay": {
+        "title": "Reenvio e sandbox",
+        "body": "Reenvie qualquer webhook ou mande um evento de teste pelo pipeline inteiro, pelo painel ou pelo CLI."
+      },
+      "secrets": {
+        "title": "Cofre de segredos",
+        "body": "Injete chaves de API nos headers de saída com {{secrets.NAME}}. Criptografados, nunca exibidos de novo, nunca enviados ao CLI."
+      },
+      "retries": {
+        "title": "Políticas de retentativa",
+        "body": "Intervalos fixos, exponenciais ou personalizados por endpoint. Entregas que falharam vão para uma fila de mortos que você pode reenviar."
+      },
+      "ssrf": {
+        "title": "Proteção contra SSRF",
+        "body": "Entregas para endereços privados, de loopback e de metadados de nuvem são recusadas pelo IP realmente conectado."
+      },
+      "keyboard": {
+        "title": "Teclado em primeiro lugar",
+        "body": "⌘K encontra qualquer endpoint, requisição, página ou ação. Escuro por padrão, com o tema claro a um atalho de distância."
+      },
+      "languages": {
+        "title": "No seu idioma",
+        "body": "Painel, emails e alertas totalmente traduzidos para inglês, português e espanhol."
+      },
+      "api": {
+        "title": "API e chaves de API",
+        "body": "Endpoints, logs, reenvios, transformações, segredos e alertas estão todos na API REST (com especificação OpenAPI), com chaves por escopo para CI e scripts."
+      }
+    }
+  },
+  "screens": {
+    "eyebrow": "Painel",
+    "title": "Feito para depurar às 2 da manhã",
+    "debugger": "Debugger de requisições: latência por etapa, payloads e cada tentativa",
+    "transform": "Editor de transformações com prévia ao vivo do que o seu app vai receber",
+    "endpoints": "Endpoints com URL, autenticação e taxa de sucesso"
+  },
+  "cli": {
+    "eyebrow": "CLI",
+    "title": "Webhooks reais no localhost",
+    "body": "hookshield listen encaminha cada webhook para o seu app local exatamente como o HookShield entrega — corpo byte a byte, então as assinaturas do Stripe e do GitHub continuam válidas. Sem túnel para configurar.",
+    "install": "Instalar",
+    "docs": "Docs do CLI",
+    "copy": "Copiar comando"
+  },
+  "selfHost": {
+    "eyebrow": "Self-host",
+    "title": "Seu servidor, suas chaves, sem limites",
+    "body": "A edição self-hosted é o mesmo gateway e o mesmo painel do Cloud, sob licença MIT: sem cota de requisições, sem limites de plano, sem chave de licença. Sua chave de criptografia nunca sai do seu servidor.",
+    "render": "Deploy no Render",
+    "railway": "Deploy no Railway",
+    "coolify": "Deploy com Coolify",
+    "compose": "Docker Compose no seu servidor",
+    "composeNote": "HTTPS pelo Caddy, um domínio só, backups incluídos.",
+    "guide": "Guia de self-hosting",
+    "composeComment": "no seu servidor",
+    "oneClickNote": "Cada botão sobe a imagem all-in-one com PostgreSQL e Redis. A chave de criptografia é gerada para você — faça backup dela."
+  },
+  "pricing": {
+    "eyebrow": "Preços",
+    "title": "Grátis para começar. Pague conforme cresce.",
+    "subtitle": "O HookShield Cloud roda, escala e faz backup do gateway para você. Preços em USD; os impostos ficam com a Paddle, nosso merchant of record.",
+    "perMonth": "/mês",
+    "custom": "Sob consulta",
+    "requests": "{count} requisições/mês",
+    "unlimitedRequests": "Requisições ilimitadas",
+    "overage": "{price} a cada 10.000 extras",
+    "hardLimit": "Para no limite",
+    "retries": "Até {count} retentativas por webhook",
+    "unlimitedRetries": "Regras de retentativa personalizadas",
+    "retention": "{days} de histórico de payloads",
+    "retention24h": "24 horas de histórico de payloads",
+    "customRetention": "Retenção e SLA personalizados",
+    "everything": "Todos os recursos, canais de alerta e o CLI",
+    "cta": {
+      "developer": "Comece grátis",
+      "pro": "Começar com o Pro",
+      "business": "Começar com o Business",
+      "enterprise": "Fale com a gente"
+    },
+    "plans": {
+      "developer": "Developer",
+      "pro": "Pro",
+      "business": "Business",
+      "enterprise": "Enterprise"
+    },
+    "taglines": {
+      "developer": "Projetos pessoais e para experimentar",
+      "pro": "Apps em produção",
+      "business": "Plataformas de alto volume",
+      "enterprise": "Contrato, SLA e infraestrutura dedicada"
+    },
+    "popular": "Mais escolhido",
+    "days": "{count} dias",
+    "selfHosted": {
+      "title": "Self-hosted",
+      "price": "Grátis",
+      "body": "O mesmo gateway e painel, licença MIT, sem limites de plano. Você que roda.",
+      "cta": "Hospedar"
+    },
+    "billingNote": "Retentativas nunca contam nas suas requisições: só contam os webhooks recebidos, reenvios e eventos de teste."
+  },
+  "security": {
+    "eyebrow": "Segurança",
+    "title": "Zero trust de ponta a ponta",
+    "items": {
+      "encryption": "AES-256-GCM em todo payload e header, segredo guardado e canal de alerta, com nonce aleatório por registro",
+      "tokens": "Tokens de endpoint e chaves de API guardados só como hash; argon2id para senhas",
+      "ssrf": "Proteção contra SSRF no IP conectado, sem seguir redirecionamentos",
+      "sessions": "Sessões HttpOnly, checagem de CSRF, Content-Security-Policy e limite de tentativas de login por email e IP",
+      "audit": "Revisão de segurança antes do lançamento; achados e limitações conhecidas são públicos na política de segurança",
+      "open": "Open source: leia cada linha e reporte problemas de forma privada"
+    },
+    "policy": "Política de segurança"
+  },
+  "faq": {
+    "title": "Perguntas",
+    "items": {
+      "free": {
+        "q": "A edição self-hosted é grátis mesmo?",
+        "a": "Sim. Tem licença MIT e não tem cota de requisições, limites de plano nem chave de licença. O HookShield Cloud acrescenta hospedagem, planos e cobrança em cima do mesmo núcleo open source."
+      },
+      "down": {
+        "q": "O que acontece quando o meu app cai?",
+        "a": "O HookShield já respondeu para quem enviou, então nada se perde. As entregas são repetidas com backoff; depois da última tentativa o webhook vai para a fila de mortos, você recebe um alerta e pode reenviá-lo pelo painel."
+      },
+      "guarantees": {
+        "q": "Qual a garantia de entrega?",
+        "a": "Pelo menos uma vez (at-least-once). Toda entrega leva o header X-HookShield-Id para o seu app ignorar duplicados. Não há garantia de ordem entre webhooks."
+      },
+      "storage": {
+        "q": "Vocês guardam os meus payloads?",
+        "a": "Criptografados, pelo tempo de retenção do seu plano (24 horas no Developer, 30 dias no Pro, 90 dias no Business), para você inspecionar e reenviar. Instalações self-hosted escolhem a própria retenção."
+      },
+      "providers": {
+        "q": "Funciona com Stripe, GitHub, Shopify…?",
+        "a": "Com qualquer remetente que faça uma requisição HTTP. O HookShield mantém o corpo byte a byte, então o seu app continua conseguindo verificar a assinatura do provedor."
+      },
+      "latency": {
+        "q": "É rápido?",
+        "a": "Aceitar um webhook leva poucos milissegundos (p99 abaixo de 20 ms no nosso benchmark); transformação, gravação e entrega acontecem de forma assíncrona. Os workers escalam horizontalmente."
+      }
+    }
+  },
+  "cta": {
+    "title": "Pare de perder webhooks hoje",
+    "body": "Crie um endpoint, aponte o seu provedor para ele e veja a primeira requisição chegar no feed ao vivo.",
+    "primary": "Comece grátis",
+    "secondary": "Ler a documentação"
+  },
+  "footer": {
+    "tagline": "Gateway de webhooks open source e zero-trust.",
+    "product": "Produto",
+    "resources": "Recursos",
+    "legal": "Legal",
+    "changelog": "Versões",
+    "security": "Segurança",
+    "terms": "Termos de Serviço",
+    "privacy": "Política de Privacidade",
+    "refund": "Política de Reembolso",
+    "license": "Licença MIT",
+    "copyright": "© {year} HookShield. Código sob a Licença MIT."
+  },
+  "docs": {
+    "title": "Documentação",
+    "onThisPage": "Nesta página",
+    "edit": "Editar esta página no GitHub",
+    "previous": "Anterior",
+    "next": "Próxima",
+    "toc": "Navegação da documentação",
+    "sections": {
+      "start": "Primeiros passos",
+      "concepts": "Como funciona",
+      "reference": "Referência",
+      "project": "Projeto"
+    }
+  },
+  "legal": {
+    "draft": "Rascunho — ainda não está em vigor. Este texto está em revisão e será publicado antes de o HookShield Cloud aceitar pagamentos.",
+    "updated": "Última atualização: {date}"
+  },
+  "notFound": {
+    "title": "Página não encontrada",
+    "body": "Esta página não existe ou mudou de lugar.",
+    "home": "Ir para a página inicial",
+    "docs": "Abrir a documentação"
+  }
+}
