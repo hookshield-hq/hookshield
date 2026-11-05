@@ -1,7 +1,7 @@
 ---
 title: Terms of Service
 updated: 2026-11-04
-draft: true
+draft: false
 ---
 
 # Terms of Service

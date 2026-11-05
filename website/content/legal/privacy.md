@@ -1,7 +1,7 @@
 ---
 title: Privacy Policy
 updated: 2026-11-04
-draft: true
+draft: false
 ---
 
 # Privacy Policy
