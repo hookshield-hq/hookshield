@@ -86,6 +86,7 @@ func newFixture(t *testing.T) *fixture {
 	}
 	tok, _ := token.Generate(token.PrefixInbound)
 	secretCT, secretNonce, _ := c.Seal([]byte(hmacSecret), HMACAAD("e-hmac"))
+	pausedCT, pausedNonce, _ := c.Seal([]byte(hmacSecret), HMACAAD("e-hmac-paused"))
 
 	f := &fixture{
 		configs: &fakeConfigs{data: map[string]store.IngestConfig{
@@ -95,6 +96,8 @@ func newFixture(t *testing.T) *fixture {
 				AuthMode: store.AuthToken, AuthHeaderKey: "X-HookShield-Token", AuthTokenHash: token.Hash(tok)},
 			"ep_hmac": {EndpointID: "e-hmac", UserID: "u1", Slug: "ep_hmac", Status: store.StatusActive,
 				AuthMode: store.AuthHMAC, HMACHeader: "X-Signature", HMACSecretEnc: secretCT, HMACSecretNonce: secretNonce, HMACKeyVersion: 1},
+			"ep_hmac_paused": {EndpointID: "e-hmac-paused", UserID: "u1", Slug: "ep_hmac_paused", Status: store.StatusPaused,
+				AuthMode: store.AuthHMAC, HMACHeader: "X-Signature", HMACSecretEnc: pausedCT, HMACSecretNonce: pausedNonce, HMACKeyVersion: 1},
 			"ep_ips": {EndpointID: "e-ips", UserID: "u1", Slug: "ep_ips", Status: store.StatusActive,
 				AuthMode: store.AuthIPAllowlist, IPAllowlist: []netip.Prefix{netip.MustParsePrefix("203.0.113.0/24")}},
 			"ep_weird": {EndpointID: "e-weird", UserID: "u1", Slug: "ep_weird", Status: store.StatusActive, AuthMode: "none"},
@@ -225,6 +228,13 @@ func TestRejections(t *testing.T) {
 			return map[string]string{"X-HookShield-Token": f.tok}
 		}, "", 503, CodeEndpointPaused},
 		{"paused but bad token still 401", "POST", "/v1/ep_paused", "{}", nil, "", 401, CodeUnauthorized},
+		// docs/INGEST.md: authentication comes before the paused state, in every mode.
+		{"paused hmac endpoint, bad signature still 401", "POST", "/v1/ep_hmac_paused", "{}", func(*fixture) map[string]string {
+			return map[string]string{"X-Signature": sign("tampered", true)}
+		}, "", 401, CodeUnauthorized},
+		{"paused hmac endpoint, valid signature", "POST", "/v1/ep_hmac_paused", "{}", func(*fixture) map[string]string {
+			return map[string]string{"X-Signature": sign("{}", true)}
+		}, "", 503, CodeEndpointPaused},
 		{"body too large", "POST", "/v1/ep_token", strings.Repeat("x", 65), func(f *fixture) map[string]string {
 			return map[string]string{"X-HookShield-Token": f.tok}
 		}, "", 413, CodePayloadTooLarge},

@@ -6,7 +6,7 @@
 #   ./backup.sh /mnt/offsite    # another directory
 #
 # Cron (every night at 03:00):
-#   0 3 * * * cd /opt/hookshield/deploy && ./backup.sh >> backups/backup.log 2>&1
+#   0 3 * * * cd /opt/hookshield/deploy && mkdir -p backups && ./backup.sh >> backups/backup.log 2>&1
 #
 # A dump is useless without the encryption key: keep a copy of it somewhere
 # else (password manager), once:

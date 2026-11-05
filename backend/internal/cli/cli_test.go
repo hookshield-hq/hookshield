@@ -133,3 +133,37 @@ func TestBuildTrigger(t *testing.T) {
 		t.Fatal("header without colon should fail")
 	}
 }
+
+// docs/CLI.md: the saved login is "readable only by you", even when an old
+// file with wider permissions (or a leftover temporary file) is in the way.
+func TestSaveConfigIsAlwaysPrivate(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.json")
+	for _, p := range []string{path, path + ".tmp"} {
+		if err := os.WriteFile(p, []byte("{}"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Chmod(p, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	getenv := func(k string) string {
+		if k == EnvConfig {
+			return path
+		}
+		return ""
+	}
+	if _, err := SaveConfig(getenv, Config{APIURL: "https://hooks.example.com", APIKey: "hs_live_secret"}); err != nil {
+		t.Fatal(err)
+	}
+	st, err := os.Stat(path)
+	if err != nil || st.Mode().Perm() != 0o600 {
+		t.Fatalf("config file mode %v (%v), want 0600", st.Mode(), err)
+	}
+	entries, _ := os.ReadDir(dir)
+	for _, e := range entries {
+		if strings.HasPrefix(e.Name(), ".config-") {
+			t.Fatalf("temporary file left behind: %s", e.Name())
+		}
+	}
+}

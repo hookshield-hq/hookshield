@@ -171,8 +171,25 @@ func (s *Service) background(ctx context.Context, fn func(ctx context.Context)) 
 	}()
 }
 
-// SessionTTL returns the session lifetime (used for cookie Max-Age).
+// SessionTTL returns the sliding session lifetime.
 func (s *Service) SessionTTL() time.Duration { return s.opts.SessionTTL }
+
+// sessionSlideEvery is how often activity extends a session (one write per hour at most).
+const sessionSlideEvery = time.Hour
+
+// CookieMaxAge is how long the browser should keep the cookie of ses from
+// now: the sliding lifetime, never past the absolute one (HS_SESSION_MAX_AGE).
+func (s *Service) CookieMaxAge(ses store.Session) time.Duration {
+	left := s.opts.SessionMaxAge - s.opts.Now().Sub(ses.CreatedAt)
+	return max(min(s.opts.SessionTTL, left), 0)
+}
+
+// Slides reports whether Authenticate extends ses (given the session as it
+// returned it): the cookie must then be extended too, or the browser would
+// drop an active session SessionTTL after sign-in.
+func (s *Service) Slides(ses store.Session) bool {
+	return s.opts.Now().Sub(ses.LastSeenAt) > sessionSlideEvery
+}
 
 // GoogleEnabled reports whether Google sign-in is configured.
 func (s *Service) GoogleEnabled() bool { return s.opts.Google.enabled() }
@@ -352,7 +369,7 @@ func (s *Service) Authenticate(ctx context.Context, sessionToken string) (store.
 		_ = s.st.DeleteSession(ctx, token.Hash(sessionToken))
 		return store.Session{}, store.User{}, ErrUnauthorized
 	}
-	if s.opts.Now().Sub(ses.LastSeenAt) > time.Hour {
+	if s.Slides(ses) {
 		_ = s.st.TouchSession(ctx, ses.ID, s.opts.Now().Add(s.opts.SessionTTL))
 	}
 	return ses, u, nil

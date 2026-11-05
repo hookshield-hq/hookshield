@@ -198,7 +198,7 @@ const (
 
 func (s *Server) setSessionCookie(w http.ResponseWriter, tok string, ttl time.Duration) {
 	http.SetCookie(w, &http.Cookie{
-		Name: sessionCookie, Value: tok, Path: "/", MaxAge: int(ttl.Seconds()),
+		Name: sessionCookie, Value: tok, Path: "/", MaxAge: max(int(ttl.Seconds()), 1), // 0 would mean a browser-session cookie
 		HttpOnly: true, Secure: s.opts.SecureCookies, SameSite: http.SameSiteLaxMode,
 	})
 }

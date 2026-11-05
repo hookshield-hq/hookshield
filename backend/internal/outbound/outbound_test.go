@@ -17,6 +17,9 @@ func TestIsBlocked(t *testing.T) {
 		"::ffff:10.0.0.1",
 		// security review: IPv6 forms that reach IPv4 or local networks
 		"64:ff9b:1::a00:1", "2002:a00:1::1", "2001:0:4136:e378::1", "100::1",
+		// documentation audit: "reserved ranges are refused"
+		"::127.0.0.1", "::a00:1", "::ffff:0:7f00:1", "fec0::1", "192.0.2.1", "198.51.100.1", "203.0.113.1",
+		"192.88.99.1", "2001:db8::1", "3fff::1",
 	}
 	for _, s := range blockedIPs {
 		if !IsBlocked(netip.MustParseAddr(s)) {

@@ -54,7 +54,7 @@ git clone --depth 1 https://github.com/hookshield-hq/hookshield /opt/hookshield
 cd /opt/hookshield/deploy
 ./setup.sh hooks.example.com    # writes .env: domain + random database password
 docker compose up -d            # Caddy gets the certificate; the first start creates the key
-docker compose logs -f api      # "generated a new encryption key — BACK IT UP NOW"
+docker compose logs | grep -i "encryption key"   # "generated a new encryption key — BACK IT UP NOW"
 ```
 
 Open `https://hooks.example.com` and create your account. Then:
@@ -96,7 +96,7 @@ HS_BACKUP_KEEP_DAYS=30 ./backup.sh /mnt/offsite
 Nightly with cron (`crontab -e`):
 
 ```
-0 3 * * * cd /opt/hookshield/deploy && ./backup.sh >> backups/backup.log 2>&1
+0 3 * * * cd /opt/hookshield/deploy && mkdir -p backups && ./backup.sh >> backups/backup.log 2>&1
 ```
 
 Copy the dumps off the server (object storage, another machine). Restore into a running stack (replaces all data; same encryption key required):
@@ -124,7 +124,7 @@ The button reads [`render.yaml`](../render.yaml): one web service (all-in-one im
 
 The Railway template (recipe in [`deploy/railway/README.md`](../deploy/railway/README.md)) creates the all-in-one service, Postgres and Redis, and generates the key. The public URL comes from `RAILWAY_PUBLIC_DOMAIN`; with a custom domain set `HS_PUBLIC_URL`.
 
-Without the template: new project → **Deploy from Docker image** `ghcr.io/hookshield-hq/hookshield:latest`, add Postgres and Redis, and set `HS_DATABASE_URL=${{Postgres.DATABASE_URL}}`, `HS_REDIS_URL=${{Redis.REDIS_URL}}`, `HS_ENCRYPTION_KEY` (`openssl rand -base64 32`). Expose port 8000.
+Without the template: new project → **Deploy from Docker image** `ghcr.io/hookshield-hq/hookshield:latest`, add Postgres and Redis, and set `HS_DATABASE_URL=${{Postgres.DATABASE_URL}}`, `HS_REDIS_URL=${{Redis.REDIS_URL}}`, `HS_ENCRYPTION_KEY` (`openssl rand -base64 32`) and `PORT=8000`. Expose port 8000.
 
 ## Coolify
 

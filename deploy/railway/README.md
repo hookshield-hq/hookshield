@@ -22,10 +22,11 @@ template is published, put its "Deploy on Railway" button in the main README.
 | `HS_EMAIL_FROM` | empty (user fills: `HookShield <no-reply@their.domain>`) |
 | `HS_RESEND_API_KEY` | empty (user fills: `re_…`) |
 | `HS_RETENTION` | `720h` |
+| `PORT` | `8000` — must match the public networking port (otherwise Railway may inject another `PORT` and the domain answers 502) |
+| `RAILWAY_RUN_UID` | `0` — Railway mounts volumes owned by root; the image runs as the `node` user and could not write `/data` otherwise |
 
-`PORT` and `RAILWAY_PUBLIC_DOMAIN` are set by Railway; `hookshield-server`
-derives the public URL from `RAILWAY_PUBLIC_DOMAIN`. With a custom domain,
-set `HS_PUBLIC_URL=https://your.domain`.
+`RAILWAY_PUBLIC_DOMAIN` is set by Railway; `hookshield-server` derives the
+public URL from it. With a custom domain, set `HS_PUBLIC_URL=https://your.domain`.
 
 Mark `HS_ENCRYPTION_KEY` in the template description: "Back this value up —
 without it stored webhooks cannot be decrypted."

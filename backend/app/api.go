@@ -6,6 +6,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"os"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -135,8 +136,10 @@ func serveAPI(ctx context.Context, cfg *config.Config, pool *pgxpool.Pool, log *
 	}
 
 	srv := api.New(authSvc, api.Options{
-		AppURL:         cfg.AppURL,
-		AllowedOrigins: cfg.CORSOrigins,
+		AppURL: cfg.AppURL,
+		// The dashboard's origins, plus the API's own: pages it serves itself
+		// (HookShield Cloud's checkout and admin pages) post forms to it.
+		AllowedOrigins: append(append([]string{}, cfg.CORSOrigins...), originOf(cfg.APIURL)),
 		SecureCookies:  cfg.CookieSecure,
 		TrustedProxies: cfg.TrustedProxies,
 		Logger:         log,
@@ -263,4 +266,13 @@ func deref(s *string) string {
 		return ""
 	}
 	return *s
+}
+
+// originOf is the scheme://host[:port] of a URL ("" when it has none).
+func originOf(raw string) string {
+	u, err := url.Parse(raw)
+	if err != nil || u.Scheme == "" || u.Host == "" {
+		return ""
+	}
+	return u.Scheme + "://" + u.Host
 }

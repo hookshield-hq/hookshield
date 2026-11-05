@@ -50,3 +50,6 @@ GUIA_DESENVOLVIMENTO.md
 
 # ── Self-hosting ──────────────────────────────────────────
 deploy/backups/
+
+# Redis dumps from local development
+dump.rdb

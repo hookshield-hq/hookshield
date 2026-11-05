@@ -113,7 +113,10 @@ func ClientIP(r *http.Request, trusted []netip.Prefix) netip.Addr {
 	if !inPrefixes(peer, trusted) {
 		return peer
 	}
-	hops := strings.Split(r.Header.Get("X-Forwarded-For"), ",")
+	// A proxy may append its hop as a separate header line instead of to the
+	// existing one: read every line, or the client's own (forged) first line
+	// would be the whole chain.
+	hops := strings.Split(strings.Join(r.Header.Values("X-Forwarded-For"), ","), ",")
 	origin := peer
 	for i := len(hops) - 1; i >= 0; i-- {
 		a, err := netip.ParseAddr(strings.TrimSpace(hops[i]))

@@ -82,7 +82,7 @@ func (s *Server) register(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, err)
 		return
 	}
-	s.setSessionCookie(w, login.Token, s.auth.SessionTTL())
+	s.setSessionCookie(w, login.Token, s.auth.CookieMaxAge(login.Session))
 	httpx.JSON(w, http.StatusCreated, map[string]any{"user": toUserJSON(login.User)})
 }
 
@@ -99,7 +99,7 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, err)
 		return
 	}
-	s.setSessionCookie(w, login.Token, s.auth.SessionTTL())
+	s.setSessionCookie(w, login.Token, s.auth.CookieMaxAge(login.Session))
 	httpx.JSON(w, http.StatusOK, map[string]any{"user": toUserJSON(login.User)})
 }
 
@@ -228,7 +228,7 @@ func (s *Server) googleCallback(w http.ResponseWriter, r *http.Request) {
 		s.redirectError(w, r, redirect, err)
 		return
 	}
-	s.setSessionCookie(w, login.Token, s.auth.SessionTTL())
+	s.setSessionCookie(w, login.Token, s.auth.CookieMaxAge(login.Session))
 	http.Redirect(w, r, s.opts.AppURL+auth.SafeRedirect(redirect), http.StatusFound)
 }
 

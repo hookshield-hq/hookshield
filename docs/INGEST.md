@@ -12,7 +12,7 @@ POST https://in.hookshield.dev/v1/{slug}
 
 ```
 method → endpoint lookup → IP allow-list → token → paused? → body (size cap)
-       → HMAC → rate limit / monthly quota → encrypt → enqueue → 202 Accepted
+       → HMAC → paused? (HMAC mode) → rate limit / monthly quota → encrypt → enqueue → 202 Accepted
 ```
 
 The response is sent as soon as the request is **encrypted and queued**; transformation, storage and delivery to your application happen asynchronously in the worker. Typical response time is a few milliseconds (p99 budget: 20 ms).
@@ -28,7 +28,7 @@ Every endpoint has exactly one inbound authentication mode; there is no unauthen
 | Mode | How the sender proves itself | Notes |
 |---|---|---|
 | `token` (default) | Header `X-HookShield-Token: hs_in_…` (header name configurable per endpoint) | The token is shown once at creation; HookShield stores only its SHA-256 and compares in constant time. The token header is **removed** before the request is stored or forwarded. |
-| `hmac` | Header with an HMAC-SHA256 of the raw body, keyed with the endpoint secret (header name configurable, e.g. `X-Hub-Signature-256`) | Accepted formats: `<hex>`, `sha256=<hex>` (GitHub), `<base64>` (Shopify). The secret is stored encrypted (AES-256-GCM). |
+| `hmac` | Header with an HMAC-SHA256 of the raw body, keyed with the endpoint secret (header name configurable, e.g. `X-Hub-Signature-256`) | Accepted formats: `<hex>`, `sha256=<hex>` (GitHub), `<base64>` (Shopify), compared with `hmac.Equal`. The secret is stored encrypted (AES-256-GCM). There is no timestamp, so a captured request can be replayed; schemes that sign a timestamp too (Stripe's `t=…,v1=…`) are not supported — use `token` mode and verify them in your app. |
 | `ip_allowlist` | Request comes from an allowed IP/CIDR | Behind a reverse proxy, set `HS_TRUSTED_PROXIES` so the real client IP is taken from `X-Forwarded-For` (rightmost untrusted hop). Spoofed `X-Forwarded-For` from untrusted peers is ignored. |
 
 > **Why not tokens in the query string?** URLs end up in logs, browser history and provider dashboards. Tokens are only accepted in headers.
@@ -59,7 +59,7 @@ Successful responses also carry the request ID in the `X-HookShield-Request-Id` 
 
 ### Order of checks
 
-Authentication is evaluated **before** the paused state, size cap and limits. A paused endpoint therefore still answers `401` to bad credentials, and requests that fail authentication never count against your quota.
+Authentication is evaluated **before** the paused state and limits (and before the size cap, except in `hmac` mode, where the signature covers the body). A paused endpoint therefore still answers `401` to bad credentials, and requests that fail authentication never count against your quota.
 
 ## What is stored
 
@@ -67,7 +67,7 @@ Authentication is evaluated **before** the paused state, size cap and limits. A 
 |---|---|
 | Method, query string, body, all request headers | The inbound token header, hop-by-hop headers (`Connection`, `Transfer-Encoding`, …) |
 
-The request is sealed with AES-256-GCM **in the ingest service**, so the payload is encrypted in the queue (Redis) as well as in PostgreSQL. Only non-sensitive metadata stays in plain text: method, content type, size, source IP and timestamps.
+The request is sealed with AES-256-GCM **in the ingest service**, so the payload is encrypted in the queue (Redis) as well as in PostgreSQL. Only metadata stays in plain text: method, content type, size, source IP and timestamps, plus the event type the worker detects (e.g. `invoice.paid`, so logs can be filtered by it) — keep secrets out of event-type fields.
 
 ## Limits
 

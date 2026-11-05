@@ -51,6 +51,18 @@ func (p *Producer) PublishDispatch(ctx context.Context, m DispatchMessage) (stri
 // memory if something keeps producing undecodable entries.
 const DeadLetterMaxLen = 100_000
 
+// DeadLetterMaxAge is how long a dead-lettered message is kept: never longer
+// than the shortest retention any account can have (24 hours on HookShield
+// Cloud's free plan), since it still holds the sealed payload.
+const DeadLetterMaxAge = 24 * time.Hour
+
+// TrimDeadLetters deletes dead-lettered messages older than DeadLetterMaxAge
+// (stream IDs carry their insertion time).
+func (p *Producer) TrimDeadLetters(ctx context.Context, now time.Time) (int64, error) {
+	minID := fmt.Sprintf("%d-0", now.Add(-DeadLetterMaxAge).UnixMilli())
+	return p.rdb.XTrimMinID(ctx, p.keys.DeadLetterStream(), minID).Result()
+}
+
 // DeadLetter records a message that can never be processed (malformed,
 // undecryptable, crashing its consumer). The original stream fields are kept
 // unchanged next to the metadata (source, entry_id, reason, at) so the entry

@@ -38,12 +38,12 @@ Every response carries `X-Request-Id` (reused from the request when present), wh
 ## Sessions, cookies and browser security
 
 - Signing in (register, login, Google) sets the **`hs_session`** cookie: `HttpOnly`, `SameSite=Lax`, `Path=/`, `Secure` when `HS_COOKIE_SECURE=true` (default in production). The token (`hs_sess_…`) is stored only as a SHA-256 hash.
-- Sessions are **sliding**: valid for `HS_SESSION_TTL` (default 30 days) since the last use, refreshed at most once an hour — and never longer than `HS_SESSION_MAX_AGE` (default 90 days) after sign-in.
+- Sessions are **sliding**: valid for `HS_SESSION_TTL` (default 30 days) since the last use, refreshed at most once an hour (the cookie's `Max-Age` with it) — and never longer than `HS_SESSION_MAX_AGE` (default 90 days) after sign-in.
 - **Security headers** on every API response: `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Content-Security-Policy: default-src 'none'; frame-ancestors 'none'`, `Referrer-Policy: no-referrer`, `Cache-Control: no-store` (the OpenAPI document is cacheable).
 - **CSRF:** every state-changing request (`POST`, `PATCH`, `PUT`, `DELETE`) that carries a cookie must send an `Origin` listed in `HS_CORS_ORIGINS` (default `HS_APP_URL`); otherwise `403 auth.csrf`. Browsers send `Origin` automatically. Clients without cookies (curl, servers) may call the public auth endpoints without it.
 - **CORS:** only the allowed origins get `Access-Control-Allow-Origin` with `Access-Control-Allow-Credentials: true`. The dashboard must call the API with `credentials: "include"`.
 - **Login throttling:** every attempt counts before the password is checked (parallel guesses cannot slip past the limit). After 10 attempts for one email, or 50 from one IP (IPv6: one /64), within 15 minutes, logins answer `429 auth.too_many_attempts` (even with the right password) until the window passes; a successful login resets the email's counter and does not count against the IP. Unknown emails and wrong passwords get the same answer and take the same time. Password hashing (argon2id, 64 MiB) runs at most a few at a time per server, so a burst of logins queues instead of exhausting memory.
-- **Sign-up throttling:** at most 10 sign-up attempts per IP (IPv6: one /64) per 15 minutes (`429 auth.too_many_attempts`).
+- **Sign-up throttling:** at most `HS_SIGNUP_RATE_LIMIT` sign-up attempts per IP (IPv6: one /64) per 15 minutes — 10 in production, 1000 in development (`429 auth.too_many_attempts`).
 - **Email throttling:** at most one verification and one reset email per account per minute.
 - Changing or resetting the password **signs out every other session** and emails a "password changed" notice. **Resetting** (account recovery) also **revokes every API key**. Open live feeds re-check their credentials every ping and end after a sign-out, a reset or a key revocation.
 - **Google sign-in on an unverified account:** when someone registered the email with a password but never verified it, the first Google sign-in with that (Google-verified) address — or a password reset through a link sent to it — takes the account over and it starts clean: the password, every session and API key, every endpoint (with its inbound token, HMAC secret and logs), alert channel and secret are deleted, so a squatter who registered first keeps no access and no foothold. The account itself (ID, plan) is kept.
@@ -94,7 +94,7 @@ Which sign-in methods the server offers. → `200 {"password": true, "google": f
 {"email": "ana@example.com", "password": "a long passphrase", "name": "Ana", "locale": "pt-BR"}
 ```
 
-`name` and `locale` are optional (`locale` defaults to `en`). The email is lowercased. Password policy: 10–256 characters, not equal to the email. → `201 {"user": …}` plus the session cookie, and a verification email (link to `HS_APP_URL/verify-email?token=…`, valid 48 h). Errors: `auth.email_taken`, `auth.invalid_email`, `auth.invalid_locale`, `password.too_short`, `password.too_long`, `password.same_as_email`, `auth.too_many_attempts` (more than 10 sign-ups from one IP — IPv6: one /64 — within 15 minutes).
+`name` and `locale` are optional (`locale` defaults to `en`). The email is lowercased. Password policy: 10–256 characters, not equal to the email. → `201 {"user": …}` plus the session cookie, and a verification email (link to `HS_APP_URL/verify-email?token=…`, valid 48 h). Errors: `auth.email_taken`, `auth.invalid_email`, `auth.invalid_locale`, `password.too_short`, `password.too_long`, `password.same_as_email`, `auth.too_many_attempts` (more than `HS_SIGNUP_RATE_LIMIT` sign-ups — 10 in production — from one IP, IPv6: one /64, within 15 minutes).
 
 ### `POST /v1/auth/login`
 
@@ -174,7 +174,7 @@ Endpoints of other accounts answer `404 endpoint.not_found`, exactly like missin
 | `status` | `active`, `paused` (ingest answers `503` + `Retry-After`, senders retry) or `debug` |
 | `auth.mode` | `token` (default), `hmac` or `ip_allowlist` — there is no unauthenticated mode |
 | `auth.header` | header carrying the token (default `X-HookShield-Token`) |
-| `auth.hmac_header` / `auth.hmac_secret` | `hmac` mode: header with the signature (default `X-HookShield-Signature`) and the provider's signing secret (8–512 bytes, e.g. Stripe's `whsec_…`). Without `hmac_secret` a secret is generated |
+| `auth.hmac_header` / `auth.hmac_secret` | `hmac` mode: header with the signature (default `X-HookShield-Signature`) and the provider's signing secret (8–512 bytes, e.g. a GitHub webhook secret). Without `hmac_secret` a secret is generated. Only an HMAC-SHA256 of the raw body is checked ([INGEST.md](INGEST.md#authentication-zero-trust)): timestamped schemes such as Stripe's `Stripe-Signature` cannot be verified here — use `token` mode and let your app check them |
 | `auth.ip_allowlist` | `ip_allowlist` mode: up to 100 IPs or CIDRs |
 | `outbound_headers` | up to 50 headers added to deliveries; values may reference `{{secrets.NAME}}`. `Host`, `Content-Length`, hop-by-hop headers and `X-HookShield-*` are refused |
 | `transform_rules` | a rules document ([TRANSFORM.md](TRANSFORM.md)); problems come back as `422 transform.invalid` with `details` |
@@ -194,7 +194,7 @@ Other codes: `endpoint.invalid_name`, `endpoint.invalid_description`, `endpoint.
 {"method": "POST", "headers": {"Content-Type": ["application/json"]}, "body": {"type": "order.created"}}
 ```
 
-`method` is `POST` (default), `PUT` or `PATCH`; `headers` replaces the defaults (`Content-Type: application/json`, `User-Agent: HookShield-Test/1`); `body` (JSON) or `body_text` (anything else, up to 1 MiB). Without a body it sends `{"type": "hookshield.test", "message": "Hello from HookShield", "sent_at": "…"}`. Errors: `endpoint.not_found`, `endpoint.paused` (409), `endpoint.invalid_test_method`, `endpoint.invalid_test_body`, `endpoint.invalid_test_header`, `endpoint.test_body_too_large`, `rate_limited`, `quota_exceeded`.
+`method` is `POST` (default), `PUT` or `PATCH`; `headers` replaces the defaults (`Content-Type: application/json`, `User-Agent: HookShield-Test/1`); `body` (JSON) or `body_text` (anything else); like every API request, the JSON sent must fit in 64 KiB (`validation.invalid_json` otherwise). Without a body it sends `{"type": "hookshield.test", "message": "Hello from HookShield", "sent_at": "…"}`. Errors: `endpoint.not_found`, `endpoint.paused` (409), `endpoint.invalid_test_method`, `endpoint.invalid_test_body`, `endpoint.invalid_test_header`, `endpoint.test_body_too_large`, `rate_limited`, `quota_exceeded`.
 
 ## Secrets
 
@@ -316,7 +316,7 @@ Sends a stored webhook again. Without a body it is replayed exactly as received;
 {"headers": {"X-Custom": ["v"]}}    // replaces all request headers
 ```
 
-→ `202 {"id": "<new log>", "replay_of": "<original>", "status": "queued"}`. The replay is a **new log** that goes through the whole pipeline with the endpoint's **current** settings (transform rules, outbound headers and secrets, retry policy, alerts) — handy after fixing a destination or a rule. It counts towards the rate limit and the monthly quota like any webhook (`429 rate_limited` / `quota_exceeded`). Errors: `log.not_found`, `log.invalid_replay_body`, `log.invalid_replay_header`, `log.replay_body_too_large` (1 MiB).
+→ `202 {"id": "<new log>", "replay_of": "<original>", "status": "queued"}`. The replay is a **new log** that goes through the whole pipeline with the endpoint's **current** settings (transform rules, outbound headers and secrets, retry policy, alerts) — handy after fixing a destination or a rule. It counts towards the rate limit and the monthly quota like any webhook (`429 rate_limited` / `quota_exceeded`). Errors: `log.not_found`, `log.invalid_replay_body`, `log.invalid_replay_header`. Without an edited body the stored webhook is replayed whatever its size; an edited one must fit in the 64 KiB API request limit (`validation.invalid_json` otherwise).
 
 ## Metrics
 

@@ -6,10 +6,15 @@ import "sync"
 // between the dispatchers of a worker process so a slow or black-hole
 // destination can hold at most Max delivery slots of that worker, whatever
 // the number of dispatchers: the other endpoints keep flowing.
+//
+// It also tracks the attempts in flight, so two copies of the same attempt
+// (a redelivered message) handled at once in this process cannot both call
+// the destination.
 type EndpointSlots struct {
-	max  int
-	mu   sync.Mutex
-	used map[string]int
+	max      int
+	mu       sync.Mutex
+	used     map[string]int
+	attempts map[string]struct{}
 }
 
 // DefaultMaxPerEndpoint is the default cap of in-flight deliveries per endpoint.
@@ -21,7 +26,7 @@ func NewEndpointSlots(max int) *EndpointSlots {
 	if max <= 0 {
 		max = DefaultMaxPerEndpoint
 	}
-	return &EndpointSlots{max: max, used: map[string]int{}}
+	return &EndpointSlots{max: max, used: map[string]int{}, attempts: map[string]struct{}{}}
 }
 
 // TryAcquire takes a slot for endpointID without waiting; false means the
@@ -45,4 +50,23 @@ func (s *EndpointSlots) Release(endpointID string) {
 		return
 	}
 	s.used[endpointID]--
+}
+
+// TryClaimAttempt marks an attempt (log ID + attempt number) as being
+// delivered; false means another handler of this process is delivering it.
+func (s *EndpointSlots) TryClaimAttempt(key string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, busy := s.attempts[key]; busy {
+		return false
+	}
+	s.attempts[key] = struct{}{}
+	return true
+}
+
+// ReleaseAttempt ends a claim taken by TryClaimAttempt.
+func (s *EndpointSlots) ReleaseAttempt(key string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.attempts, key)
 }

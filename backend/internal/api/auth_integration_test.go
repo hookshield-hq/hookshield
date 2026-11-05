@@ -777,3 +777,47 @@ func TestGoogleSignInRejections(t *testing.T) {
 		t.Fatalf("providers: %+v", r.body)
 	}
 }
+
+// docs/API.md, privacy policy: sessions slide for HS_SESSION_TTL since the
+// last use, never past HS_SESSION_MAX_AGE. The browser's cookie must follow:
+// a cookie that kept the Max-Age of the sign-in would end an active session
+// SessionTTL after sign-in.
+func TestSessionCookieSlidesWithTheSession(t *testing.T) {
+	e := setup(t)
+	b := e.browser()
+	r := b.do("POST", "/v1/auth/register", map[string]any{"email": "slide@example.com", "password": goodPassword})
+	if r.status != 201 || !strings.Contains(r.header.Get("Set-Cookie"), "Max-Age=2592000") {
+		t.Fatalf("register cookie: %d %q", r.status, r.header.Get("Set-Cookie"))
+	}
+	// Within the hour: no write, no new cookie.
+	if me := b.do("GET", "/v1/me", nil); me.status != 200 || me.header.Get("Set-Cookie") != "" {
+		t.Fatalf("fresh session re-set its cookie: %d %q", me.status, me.header.Get("Set-Cookie"))
+	}
+	pool := e.store.Pool()
+	ctx := context.Background()
+	// Active 2 hours ago, signed in 80 days ago: 10 days left of the 90.
+	if _, err := pool.Exec(ctx, `UPDATE sessions SET last_seen_at = now() - interval '2 hours', created_at = now() - interval '80 days'`); err != nil {
+		t.Fatal(err)
+	}
+	me := b.do("GET", "/v1/me", nil)
+	c := me.header.Get("Set-Cookie")
+	if me.status != 200 || !strings.Contains(c, "hs_session=hs_sess_") || !strings.Contains(c, "HttpOnly") {
+		t.Fatalf("slid session must refresh its cookie: %d %q", me.status, c)
+	}
+	var maxAge int
+	for _, part := range strings.Split(c, ";") {
+		if v, ok := strings.CutPrefix(strings.TrimSpace(part), "Max-Age="); ok {
+			fmt.Sscan(v, &maxAge)
+		}
+	}
+	if want := 10 * 24 * 3600; maxAge < want-120 || maxAge > want {
+		t.Fatalf("cookie Max-Age %d, want about %d (capped by HS_SESSION_MAX_AGE)", maxAge, want)
+	}
+	// Active again 2 hours ago, signed in yesterday: a full sliding window.
+	if _, err := pool.Exec(ctx, `UPDATE sessions SET last_seen_at = now() - interval '2 hours', created_at = now() - interval '1 day'`); err != nil {
+		t.Fatal(err)
+	}
+	if c := b.do("GET", "/v1/me", nil).header.Get("Set-Cookie"); !strings.Contains(c, "Max-Age=2592000") {
+		t.Fatalf("cookie %q, want Max-Age of HS_SESSION_TTL (30 days)", c)
+	}
+}

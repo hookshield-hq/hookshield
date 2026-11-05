@@ -93,3 +93,16 @@ func TestClientIP(t *testing.T) {
 		}
 	}
 }
+
+// A proxy that adds its hop as a second header line must not let the
+// client's own first line decide the address (IP allow-list bypass).
+func TestClientIPReadsEveryForwardedForLine(t *testing.T) {
+	trusted := []netip.Prefix{netip.MustParsePrefix("127.0.0.0/8")}
+	r := httptest.NewRequest(http.MethodPost, "/", nil)
+	r.RemoteAddr = "127.0.0.1:1234"
+	r.Header.Add("X-Forwarded-For", "6.6.6.6")      // sent by the client
+	r.Header.Add("X-Forwarded-For", "198.51.100.9") // added by the proxy
+	if got := ClientIP(r, trusted).String(); got != "198.51.100.9" {
+		t.Fatalf("got %s, want the address the proxy saw (198.51.100.9)", got)
+	}
+}

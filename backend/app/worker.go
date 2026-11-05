@@ -139,6 +139,13 @@ func Worker(ctx context.Context, opts Options) error {
 			}
 			return err
 		}},
+		{Name: "dead-letter-trim", Every: time.Hour, Run: func(ctx context.Context, jc JobContext) error {
+			n, err := producer.TrimDeadLetters(ctx, time.Now())
+			if n > 0 {
+				jc.Logger.Info("old dead-lettered messages deleted", "count", n, "max_age", queue.DeadLetterMaxAge)
+			}
+			return err
+		}},
 	}, opts.Jobs...)
 	jc := JobContext{DB: pool, Redis: rdb, Logger: log.With("component", "jobs"), Usage: usage.Store{St: st}}
 	for _, j := range jobs {

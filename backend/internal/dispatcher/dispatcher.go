@@ -464,6 +464,14 @@ func (d *Dispatcher) handle(ctx context.Context, entry redis.XMessage) bool {
 	if state.Final() || state.AttemptCount >= msg.Attempt {
 		return true // already handled (duplicate or stale message)
 	}
+	// A copy of this very attempt is being delivered by another handler of
+	// this process (redelivered message): check again shortly, when its
+	// result is recorded, instead of calling the destination twice.
+	attemptKey := msg.LogID + "#" + strconv.Itoa(msg.Attempt)
+	if !d.opts.Endpoints.TryClaimAttempt(attemptKey) {
+		return d.q.ScheduleDispatch(ctx, msg, d.opts.Now().Add(d.opts.DeferDelay)) == nil
+	}
+	defer d.opts.Endpoints.ReleaseAttempt(attemptKey)
 
 	cfg, err := d.store.GetDispatchConfig(ctx, state.EndpointID)
 	if errors.Is(err, store.ErrNotFound) {

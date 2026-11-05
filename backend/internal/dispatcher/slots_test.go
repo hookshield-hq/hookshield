@@ -57,3 +57,14 @@ func TestEndpointSlotsConcurrent(t *testing.T) {
 		t.Fatalf("peak %d > %d", peak, DefaultMaxPerEndpoint)
 	}
 }
+
+func TestEndpointSlotsClaimAttemptOnce(t *testing.T) {
+	s := NewEndpointSlots(0)
+	if !s.TryClaimAttempt("log#1") || s.TryClaimAttempt("log#1") || !s.TryClaimAttempt("log#2") {
+		t.Fatal("an attempt can be claimed once at a time; others are independent")
+	}
+	s.ReleaseAttempt("log#1")
+	if !s.TryClaimAttempt("log#1") {
+		t.Fatal("released attempts can be claimed again")
+	}
+}

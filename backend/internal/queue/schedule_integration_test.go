@@ -4,9 +4,12 @@ package queue_test
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/redis/go-redis/v9"
 
 	"github.com/hookshield-hq/hookshield/backend/internal/queue"
 	"github.com/hookshield-hq/hookshield/backend/internal/testredis"
@@ -94,5 +97,26 @@ func TestScheduleRejectsSeparator(t *testing.T) {
 	err := queue.NewProducer(rdb, keys).ScheduleDispatch(context.Background(), queue.DispatchMessage{LogID: "a|b", EndpointID: "e", Attempt: 2}, time.Now())
 	if err == nil {
 		t.Fatal("expected error")
+	}
+}
+
+func TestTrimDeadLettersByAge(t *testing.T) {
+	rdb, keys := testredis.New(t)
+	ctx := context.Background()
+	p := queue.NewProducer(rdb, keys)
+	old := time.Now().Add(-queue.DeadLetterMaxAge - time.Hour)
+	if err := rdb.XAdd(ctx, &redis.XAddArgs{Stream: keys.DeadLetterStream(), ID: fmt.Sprintf("%d-0", old.UnixMilli()), Values: map[string]any{"reason": "old"}}).Err(); err != nil {
+		t.Fatal(err)
+	}
+	if err := p.DeadLetter(ctx, "ingest", "1-0", "new", map[string]any{"payload": "sealed"}); err != nil {
+		t.Fatal(err)
+	}
+	n, err := p.TrimDeadLetters(ctx, time.Now())
+	if err != nil || n != 1 {
+		t.Fatalf("trimmed %d, err %v", n, err)
+	}
+	entries, _ := rdb.XRange(ctx, keys.DeadLetterStream(), "-", "+").Result()
+	if len(entries) != 1 || entries[0].Values["reason"] != "new" {
+		t.Fatalf("left: %+v", entries)
 	}
 }

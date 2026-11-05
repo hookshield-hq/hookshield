@@ -5,7 +5,7 @@
 // Request pipeline (cheap checks first, so floods are rejected early):
 //
 //	method → endpoint lookup → IP allow-list → token → status → body (size cap)
-//	       → HMAC → rate limit / monthly quota → encrypt → XADD → 202
+//	       → HMAC → status (HMAC mode) → rate limit / monthly quota → encrypt → XADD → 202
 //
 // Unknown endpoints and bad credentials get the same 401 response, so the
 // endpoint namespace cannot be enumerated. Nothing is persisted for rejected
@@ -156,9 +156,11 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if cfg.Status == store.StatusPaused {
-		w.Header().Set("Retry-After", "60")
-		httpx.Error(w, http.StatusServiceUnavailable, CodeEndpointPaused)
+	// Authentication comes before the paused state, so a paused endpoint does
+	// not reveal itself to unauthenticated callers. HMAC needs the body: a
+	// paused HMAC endpoint answers after the signature check below.
+	if cfg.Status == store.StatusPaused && cfg.AuthMode != store.AuthHMAC {
+		paused(w)
 		return
 	}
 
@@ -175,6 +177,10 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if cfg.AuthMode == store.AuthHMAC && !h.verifyHMAC(cfg, r.Header.Get(cfg.HMACHeader), body) {
 		httpx.Error(w, http.StatusUnauthorized, CodeUnauthorized)
+		return
+	}
+	if cfg.Status == store.StatusPaused {
+		paused(w)
 		return
 	}
 
@@ -233,6 +239,11 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set(RequestIDHeader, id)
 	httpx.JSON(w, http.StatusAccepted, map[string]string{"id": id, "status": "queued"})
+}
+
+func paused(w http.ResponseWriter) {
+	w.Header().Set("Retry-After", "60")
+	httpx.Error(w, http.StatusServiceUnavailable, CodeEndpointPaused)
 }
 
 func (h *Handler) unavailable(w http.ResponseWriter, msg string, err error) {

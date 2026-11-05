@@ -455,6 +455,22 @@ func TestDuplicateDispatchDeliversOnce(t *testing.T) {
 	}
 }
 
+// review: two copies of the same attempt handled at the same time (one batch,
+// concurrent handlers) must still call the destination once.
+func TestConcurrentDuplicateDispatchDeliversOnce(t *testing.T) {
+	dest := newDestination(t, func(w http.ResponseWriter) { time.Sleep(300 * time.Millisecond); w.WriteHeader(200) })
+	e := setup(t, dest, nil)
+	id := e.send(`{}`, nil)
+	e.producer.PublishDispatch(e.ctx, queue.DispatchMessage{LogID: id, EndpointID: e.seed.EndpointID, Attempt: 1})
+	e.dispatch() // both copies in one batch, delivered concurrently
+	for e.releaseRetries() > 0 {
+		e.dispatch()
+	}
+	if dest.count() != 1 || len(e.attempts(id)) != 1 {
+		t.Fatalf("delivered %d times, %d attempts", dest.count(), len(e.attempts(id)))
+	}
+}
+
 func TestMissingSecretFailsAttemptWithoutCallingDestination(t *testing.T) {
 	dest := newDestination(t, status(200))
 	e := setup(t, dest, func(p *store.SetEndpointDeliveryParams) {

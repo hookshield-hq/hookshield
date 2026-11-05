@@ -162,6 +162,10 @@ func (s *Server) guard(level access, h http.HandlerFunc) http.Handler {
 				s.fail(w, err)
 				return
 			}
+			if s.auth.Slides(ses) {
+				// The session was just extended: extend the cookie too.
+				s.setSessionCookie(w, c.Value, s.auth.CookieMaxAge(ses))
+			}
 			ctx := context.WithValue(context.WithValue(r.Context(), ctxUser, u), ctxSession, ses)
 			h(w, r.WithContext(ctx))
 			return

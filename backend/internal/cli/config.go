@@ -88,13 +88,26 @@ func SaveConfig(getenv func(string) string, cfg Config) (string, error) {
 		return "", err
 	}
 	raw, _ := json.MarshalIndent(cfg, "", "  ")
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, append(raw, '\n'), 0o600); err != nil {
+	// A fresh temporary file is always created 0600 (os.WriteFile on a
+	// leftover or pre-created file would keep that file's permissions).
+	f, err := os.CreateTemp(filepath.Dir(path), ".config-*.tmp")
+	if err != nil {
 		return "", err
 	}
-	if err := os.Rename(tmp, path); err != nil {
+	tmp := f.Name()
+	_, werr := f.Write(append(raw, '\n'))
+	if cerr := f.Close(); werr == nil {
+		werr = cerr
+	}
+	if werr == nil {
+		werr = os.Chmod(tmp, 0o600)
+	}
+	if werr == nil {
+		werr = os.Rename(tmp, path)
+	}
+	if werr != nil {
 		os.Remove(tmp)
-		return "", err
+		return "", werr
 	}
 	return path, nil
 }

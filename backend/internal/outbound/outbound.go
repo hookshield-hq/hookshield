@@ -41,20 +41,27 @@ var blocked = []netip.Prefix{
 	netip.MustParsePrefix("169.254.0.0/16"), // link-local, cloud metadata
 	netip.MustParsePrefix("172.16.0.0/12"),
 	netip.MustParsePrefix("192.0.0.0/24"),
+	netip.MustParsePrefix("192.0.2.0/24"),   // documentation (TEST-NET-1)
+	netip.MustParsePrefix("192.88.99.0/24"), // 6to4 relay anycast (deprecated)
 	netip.MustParsePrefix("192.168.0.0/16"),
-	netip.MustParsePrefix("198.18.0.0/15"), // benchmarking
-	netip.MustParsePrefix("224.0.0.0/4"),   // multicast
-	netip.MustParsePrefix("240.0.0.0/4"),   // reserved, broadcast
-	netip.MustParsePrefix("::/128"),
-	netip.MustParsePrefix("::1/128"),
-	netip.MustParsePrefix("fc00::/7"),       // unique local
-	netip.MustParsePrefix("fe80::/10"),      // link-local
-	netip.MustParsePrefix("ff00::/8"),       // multicast
-	netip.MustParsePrefix("64:ff9b::/96"),   // NAT64 (well-known)
-	netip.MustParsePrefix("64:ff9b:1::/48"), // NAT64 (local use)
-	netip.MustParsePrefix("100::/64"),       // discard
-	netip.MustParsePrefix("2001::/32"),      // Teredo (embeds an IPv4 address)
-	netip.MustParsePrefix("2002::/16"),      // 6to4 (embeds an IPv4 address)
+	netip.MustParsePrefix("198.18.0.0/15"),   // benchmarking
+	netip.MustParsePrefix("198.51.100.0/24"), // documentation (TEST-NET-2)
+	netip.MustParsePrefix("203.0.113.0/24"),  // documentation (TEST-NET-3)
+	netip.MustParsePrefix("224.0.0.0/4"),     // multicast
+	netip.MustParsePrefix("240.0.0.0/4"),     // reserved, broadcast
+	netip.MustParsePrefix("::/96"),           // unspecified, loopback and IPv4-compatible (::a.b.c.d)
+	netip.MustParsePrefix("::ffff:0:0:0/96"), // IPv4-translated (SIIT)
+	netip.MustParsePrefix("fc00::/7"),        // unique local
+	netip.MustParsePrefix("fec0::/10"),       // site-local (deprecated)
+	netip.MustParsePrefix("fe80::/10"),       // link-local
+	netip.MustParsePrefix("ff00::/8"),        // multicast
+	netip.MustParsePrefix("64:ff9b::/96"),    // NAT64 (well-known)
+	netip.MustParsePrefix("64:ff9b:1::/48"),  // NAT64 (local use)
+	netip.MustParsePrefix("100::/64"),        // discard
+	netip.MustParsePrefix("2001::/32"),       // Teredo (embeds an IPv4 address)
+	netip.MustParsePrefix("2001:db8::/32"),   // documentation
+	netip.MustParsePrefix("2002::/16"),       // 6to4 (embeds an IPv4 address)
+	netip.MustParsePrefix("3fff::/20"),       // documentation
 }
 
 // AllowedPort reports whether deliveries may go to port: 80, 443 and every
