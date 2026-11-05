@@ -28,6 +28,9 @@ type JobContext struct {
 	Logger *slog.Logger
 	// Usage is the durable monthly usage (copied from Redis every minute).
 	Usage core.UsageStore
+	// Mail sends a plain-text email from HS_EMAIL_FROM through the install's
+	// mailer (Resend or SMTP); nil when no mailer is configured.
+	Mail func(ctx context.Context, to, subject, body string) error
 }
 
 // runJob runs j every j.Every until ctx is done. The first run happens

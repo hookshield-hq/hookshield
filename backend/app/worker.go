@@ -147,7 +147,14 @@ func Worker(ctx context.Context, opts Options) error {
 			return err
 		}},
 	}, opts.Jobs...)
+	mail, mailKind, err := mailer.FromConfig(cfg.ResendAPIKey, cfg.ResendAPIURL, cfg.SMTPURL, cfg.EmailFrom)
+	if err != nil {
+		return err
+	}
 	jc := JobContext{DB: pool, Redis: rdb, Logger: log.With("component", "jobs"), Usage: usage.Store{St: st}}
+	if mail != nil {
+		jc.Mail = mail.Send
+	}
 	for _, j := range jobs {
 		wg.Add(1)
 		go func() {
@@ -157,10 +164,6 @@ func Worker(ctx context.Context, opts Options) error {
 	}
 	log.Info("jobs started", "count", len(jobs))
 
-	mail, mailKind, err := mailer.FromConfig(cfg.ResendAPIKey, cfg.ResendAPIURL, cfg.SMTPURL, cfg.EmailFrom)
-	if err != nil {
-		return err
-	}
 	if mail == nil {
 		log.Info("no mailer (set HS_RESEND_API_KEY or HS_SMTP_URL): email alert channels are disabled")
 	} else {
