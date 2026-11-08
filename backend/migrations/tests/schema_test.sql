@@ -134,6 +134,9 @@ SELECT pg_temp.expect_error($$INSERT INTO billing_subscriptions (user_id, provid
     VALUES ('00000000-0000-0000-0000-000000000001', 'lemonsqueezy', 'sub_2', 'pro', 'active', now())$$, '23505', 'one subscription per user');
 SELECT pg_temp.expect_error($$UPDATE billing_subscriptions SET plan = 'gold'$$, '23514', 'subscription plan restricted');
 SELECT pg_temp.expect_error($$UPDATE billing_subscriptions SET status = 'on_trial'$$, '23514', 'subscription status restricted');
+SELECT pg_temp.expect_true((SELECT billing_interval = 'month' FROM billing_subscriptions WHERE subscription_id = 'sub_1'), 'billing interval defaults to month');
+UPDATE billing_subscriptions SET billing_interval = 'year' WHERE subscription_id = 'sub_1';
+SELECT pg_temp.expect_error($$UPDATE billing_subscriptions SET billing_interval = 'week'$$, '23514', 'billing interval restricted');
 UPDATE usage_counters SET units_reported = 3 WHERE user_id = '00000000-0000-0000-0000-000000000001';
 SELECT pg_temp.expect_error($$UPDATE usage_counters SET included_requests = -1$$, '23514', 'included requests are not negative');
 

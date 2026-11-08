@@ -69,6 +69,7 @@ func billingErr(err error) error {
 
 type subscriptionJSON struct {
 	Plan     string     `json:"plan"`
+	Interval string     `json:"interval"`
 	Status   string     `json:"status"`
 	RenewsAt *time.Time `json:"renews_at"`
 	EndsAt   *time.Time `json:"ends_at"`
@@ -76,7 +77,7 @@ type subscriptionJSON struct {
 }
 
 func toSubscriptionJSON(sub store.Subscription) *subscriptionJSON {
-	return &subscriptionJSON{Plan: sub.Plan, Status: sub.Status, RenewsAt: utc(sub.RenewsAt), EndsAt: utc(sub.EndsAt), TestMode: sub.TestMode}
+	return &subscriptionJSON{Plan: sub.Plan, Interval: core.NormalizeInterval(sub.Interval), Status: sub.Status, RenewsAt: utc(sub.RenewsAt), EndsAt: utc(sub.EndsAt), TestMode: sub.TestMode}
 }
 
 func utc(t *time.Time) *time.Time {
@@ -90,7 +91,7 @@ func utc(t *time.Time) *time.Time {
 func toCoreSubscription(sub store.Subscription) core.Subscription {
 	return core.Subscription{
 		UserID: sub.UserID, Provider: sub.Provider, CustomerID: sub.CustomerID, SubscriptionID: sub.SubscriptionID,
-		ItemID: sub.ItemID, Plan: sub.Plan, Status: sub.Status, RenewsAt: sub.RenewsAt, EndsAt: sub.EndsAt,
+		ItemID: sub.ItemID, Plan: sub.Plan, Interval: core.NormalizeInterval(sub.Interval), Status: sub.Status, RenewsAt: sub.RenewsAt, EndsAt: sub.EndsAt,
 		TestMode: sub.TestMode, UpdatedAt: sub.ProviderUpdatedAt,
 	}
 }
@@ -127,7 +128,7 @@ func (s *Server) billingOverview(w http.ResponseWriter, r *http.Request) {
 	for _, o := range s.opts.Billing.Offers() {
 		l := s.plans().For(o.ID)
 		offers = append(offers, map[string]any{
-			"id": o.ID, "monthly_price_cents": o.MonthlyPriceCents, "currency": o.Currency,
+			"id": o.ID, "monthly_price_cents": o.MonthlyPriceCents, "yearly_price_cents": o.YearlyPriceCents, "currency": o.Currency,
 			"overage_price_cents": o.OveragePriceCents, "overage_unit": o.OverageUnit,
 			"purchasable": o.Purchasable, "contact_url": o.ContactURL,
 			"limits": map[string]any{
@@ -150,14 +151,20 @@ func (s *Server) billingOverview(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) billingCheckout(w http.ResponseWriter, r *http.Request) {
 	var in struct {
-		Plan string `json:"plan"`
+		Plan     string `json:"plan"`
+		Interval string `json:"interval"` // "month" (default) or "year"
 	}
 	if !decode(w, r, &in) {
 		return
 	}
+	interval := core.NormalizeInterval(strings.TrimSpace(in.Interval))
+	if interval != core.IntervalMonth && interval != core.IntervalYear {
+		s.writeErr(w, invalid("billing.invalid_interval"))
+		return
+	}
 	u := userFrom(r)
 	req := core.CheckoutRequest{
-		User: CoreUser(u), Plan: strings.TrimSpace(in.Plan),
+		User: CoreUser(u), Plan: strings.TrimSpace(in.Plan), Interval: interval,
 		ReturnURL: fmt.Sprintf("%s/%s/billing?checkout=success", s.opts.AppURL, u.Locale),
 	}
 	switch got, err := s.opts.Store.GetSubscription(r.Context(), u.ID); {
@@ -170,7 +177,7 @@ func (s *Server) billingCheckout(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, err)
 		return
 	}
-	if req.Current != nil && req.Current.Plan == req.Plan {
+	if req.Current != nil && req.Current.Plan == req.Plan && core.NormalizeInterval(req.Current.Interval) == req.Interval {
 		s.writeErr(w, invalid("billing.same_plan"))
 		return
 	}
@@ -287,7 +294,7 @@ func (a accounts) SaveSubscription(ctx context.Context, sub core.Subscription) (
 	plan := sub.EffectivePlan(FreePlan, time.Now())
 	applied, slugs, err := a.s.opts.Store.SaveSubscription(ctx, store.Subscription{
 		UserID: sub.UserID, Provider: sub.Provider, CustomerID: sub.CustomerID, SubscriptionID: sub.SubscriptionID,
-		ItemID: sub.ItemID, Plan: sub.Plan, Status: sub.Status, RenewsAt: sub.RenewsAt, EndsAt: sub.EndsAt,
+		ItemID: sub.ItemID, Plan: sub.Plan, Interval: core.NormalizeInterval(sub.Interval), Status: sub.Status, RenewsAt: sub.RenewsAt, EndsAt: sub.EndsAt,
 		TestMode: sub.TestMode, ProviderUpdatedAt: sub.UpdatedAt,
 	}, plan)
 	if errors.Is(err, store.ErrConflict) {

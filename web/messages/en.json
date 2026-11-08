@@ -336,6 +336,7 @@
       "payload_too_large": "The billing notification is too large.",
       "invalid_plan": "This plan cannot be purchased online.",
       "same_plan": "You are already on this plan.",
+      "invalid_interval": "Choose monthly or yearly billing.",
       "no_subscription": "You have no subscription yet.",
       "subscription_conflict": "This subscription belongs to another account.",
       "not_found": "Subscription not found.",
@@ -932,6 +933,8 @@
     "endsOn": "Cancelled: {plan} stays active until {date}, then you return to the free plan.",
     "pastDue": "The last payment failed. Update your payment method to keep the plan.",
     "inactive": "The subscription is not active: free plan limits apply.",
+    "billedMonthly": "Billed monthly",
+    "billedYearly": "Billed yearly",
     "status": {
       "active": "Active",
       "trialing": "Trial",
@@ -952,13 +955,23 @@
       "nearOverage": "Over 80% of the included quota."
     },
     "plans": "Plans",
+    "interval": {
+      "label": "Billing interval",
+      "month": "Monthly",
+      "year": "Yearly",
+      "save": "2 months free"
+    },
     "popular": "Most popular",
     "perMonth": "/month",
+    "perYear": "/year",
+    "yearlyEquivalent": "{price}/month, billed yearly",
     "free": "Free",
     "custom": "Custom",
     "current": "Current plan",
     "upgrade": "Upgrade to {plan}",
     "switchTo": "Switch to {plan}",
+    "switchToYearly": "Switch to yearly billing",
+    "switchToMonthly": "Switch to monthly billing",
     "contact": "Contact sales",
     "downgradeHint": "To return to the free plan, cancel in “Manage billing”.",
     "features": {
@@ -970,9 +983,12 @@
       "overage": "{price} per {unit} extra requests",
       "hardLimit": "Webhooks above the quota are refused"
     },
-    "note": "Prices in USD, taxes calculated at checkout. Usage resets on the 1st of each month (UTC); overage is billed with the next invoice.",
+    "note": "Prices in USD, taxes calculated at checkout. Usage resets on the 1st of each month (UTC), also on yearly plans; overage is billed with the next invoice (on yearly plans, when each month ends).",
     "switchTitle": "Switch to {plan}?",
     "switchBody": "The change applies now. The price difference is prorated on your next invoice.",
+    "switchToYearlyTitle": "Switch to yearly billing?",
+    "switchToMonthlyTitle": "Switch to monthly billing?",
+    "switchIntervalBody": "The change applies now and a new billing period starts today: you are charged the new price minus the unused part of the current period. Quotas stay monthly.",
     "switchConfirm": "Switch plan",
     "switched": "You are now on {plan}"
   }

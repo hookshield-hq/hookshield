@@ -336,6 +336,7 @@
       "payload_too_large": "La notificación de facturación es demasiado grande.",
       "invalid_plan": "Este plan no se puede comprar en línea.",
       "same_plan": "Ya estás en este plan.",
+      "invalid_interval": "Elige facturación mensual o anual.",
       "no_subscription": "Aún no tienes una suscripción.",
       "subscription_conflict": "Esta suscripción pertenece a otra cuenta.",
       "not_found": "Suscripción no encontrada.",
@@ -932,6 +933,8 @@
     "endsOn": "Cancelado: {plan} sigue activo hasta el {date}; después vuelves al plan gratuito.",
     "pastDue": "El último pago falló. Actualiza tu método de pago para conservar el plan.",
     "inactive": "La suscripción no está activa: se aplican los límites del plan gratuito.",
+    "billedMonthly": "Facturación mensual",
+    "billedYearly": "Facturación anual",
     "status": {
       "active": "Activa",
       "trialing": "Prueba",
@@ -952,13 +955,23 @@
       "nearOverage": "Más del 80 % de la cuota incluida."
     },
     "plans": "Planes",
+    "interval": {
+      "label": "Periodo de facturación",
+      "month": "Mensual",
+      "year": "Anual",
+      "save": "2 meses gratis"
+    },
     "popular": "Más popular",
     "perMonth": "/mes",
+    "perYear": "/año",
+    "yearlyEquivalent": "{price}/mes, facturado anualmente",
     "free": "Gratis",
     "custom": "A medida",
     "current": "Plan actual",
     "upgrade": "Mejorar a {plan}",
     "switchTo": "Cambiar a {plan}",
+    "switchToYearly": "Cambiar a facturación anual",
+    "switchToMonthly": "Cambiar a facturación mensual",
     "contact": "Contactar con ventas",
     "downgradeHint": "Para volver al plan gratuito, cancela en «Gestionar facturación».",
     "features": {
@@ -970,9 +983,12 @@
       "overage": "{price} por cada {unit} solicitudes extra",
       "hardLimit": "Los webhooks por encima de la cuota se rechazan"
     },
-    "note": "Precios en USD; los impuestos se calculan al pagar. El uso se reinicia el día 1 de cada mes (UTC); el excedente se cobra en la próxima factura.",
+    "note": "Precios en USD; los impuestos se calculan al pagar. El uso se reinicia el día 1 de cada mes (UTC), también en los planes anuales; el excedente se cobra en la próxima factura (en los planes anuales, al terminar cada mes).",
     "switchTitle": "¿Cambiar a {plan}?",
     "switchBody": "El cambio se aplica ahora. La diferencia de precio se prorratea en tu próxima factura.",
+    "switchToYearlyTitle": "¿Cambiar a facturación anual?",
+    "switchToMonthlyTitle": "¿Cambiar a facturación mensual?",
+    "switchIntervalBody": "El cambio se aplica ahora y hoy empieza un nuevo periodo de facturación: pagas el nuevo precio menos la parte no usada del periodo actual. Las cuotas siguen siendo mensuales.",
     "switchConfirm": "Cambiar de plan",
     "switched": "Ahora estás en {plan}"
   }

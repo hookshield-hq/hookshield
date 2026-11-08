@@ -67,7 +67,7 @@ func (s Store) PendingUsage(ctx context.Context, provider string, periods []time
 			UserID: r.UserID, PeriodStart: r.PeriodStart.UTC(), Requests: r.Requests, UnitsReported: r.UnitsReported, IncludedRequests: r.Included,
 			Subscription: core.Subscription{
 				UserID: b.UserID, Provider: b.Provider, CustomerID: b.CustomerID, SubscriptionID: b.SubscriptionID,
-				ItemID: b.ItemID, Plan: b.Plan, Status: b.Status, RenewsAt: b.RenewsAt, EndsAt: b.EndsAt,
+				ItemID: b.ItemID, Plan: b.Plan, Interval: core.NormalizeInterval(b.Interval), Status: b.Status, RenewsAt: b.RenewsAt, EndsAt: b.EndsAt,
 				TestMode: b.TestMode, UpdatedAt: b.ProviderUpdatedAt,
 			},
 		})

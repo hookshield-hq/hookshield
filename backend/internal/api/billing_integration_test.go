@@ -26,7 +26,7 @@ type fakeBilling struct{ checkouts []core.CheckoutRequest }
 func (f *fakeBilling) Offers() []core.Offer {
 	return []core.Offer{
 		{ID: "developer", Currency: "USD"},
-		{ID: "pro", MonthlyPriceCents: 2900, Currency: "USD", OveragePriceCents: 100, OverageUnit: 10_000, Purchasable: true},
+		{ID: "pro", MonthlyPriceCents: 2900, YearlyPriceCents: 29000, Currency: "USD", OveragePriceCents: 100, OverageUnit: 10_000, Purchasable: true},
 		{ID: "business", MonthlyPriceCents: 8900, Currency: "USD", OveragePriceCents: 80, OverageUnit: 10_000, Purchasable: true},
 		{ID: "enterprise", Currency: "USD", ContactURL: "mailto:sales@example.com"},
 	}
@@ -39,10 +39,10 @@ func (f *fakeBilling) Checkout(_ context.Context, req core.CheckoutRequest) (cor
 	}
 	if req.Current != nil { // switch the plan in place
 		sub := *req.Current
-		sub.Plan, sub.UpdatedAt = req.Plan, time.Now()
+		sub.Plan, sub.Interval, sub.UpdatedAt = req.Plan, req.Interval, time.Now()
 		return core.CheckoutResult{Subscription: &sub}, nil
 	}
-	return core.CheckoutResult{URL: "https://pay.example.com/checkout?plan=" + req.Plan + "&return=" + url.QueryEscape(req.ReturnURL)}, nil
+	return core.CheckoutResult{URL: "https://pay.example.com/checkout?plan=" + req.Plan + "&interval=" + req.Interval + "&return=" + url.QueryEscape(req.ReturnURL)}, nil
 }
 
 func (f *fakeBilling) Portal(_ context.Context, _ core.User, sub core.Subscription) (string, error) {
@@ -115,7 +115,7 @@ func TestBillingLifecycle(t *testing.T) {
 		t.Fatalf("overview: %d %+v", ov.status, ov.body)
 	}
 	pro := obj(list(ov.body["offers"])[1])
-	if str(pro["id"]) != "pro" || obj(pro["limits"])["monthly_requests"] != float64(100_000) || obj(pro["limits"])["retention_hours"] != float64(30*24) {
+	if str(pro["id"]) != "pro" || pro["yearly_price_cents"] != float64(29000) || obj(pro["limits"])["monthly_requests"] != float64(100_000) || obj(pro["limits"])["retention_hours"] != float64(30*24) {
 		t.Fatalf("pro offer: %+v", pro)
 	}
 	if ent := obj(list(ov.body["offers"])[3]); obj(ent["limits"])["monthly_requests"] != nil {
@@ -130,6 +130,15 @@ func TestBillingLifecycle(t *testing.T) {
 	co := b.do("POST", "/v1/billing/checkout", map[string]any{"plan": "pro"})
 	if co.status != 200 || !strings.Contains(str(co.body["url"]), url.QueryEscape("/en/billing?checkout=success")) || co.body["subscription"] != nil {
 		t.Fatalf("checkout: %d %+v", co.status, co.body)
+	}
+	if !strings.Contains(str(co.body["url"]), "interval=month") {
+		t.Fatalf("checkout without interval must be monthly: %s", co.body["url"])
+	}
+	if r := b.do("POST", "/v1/billing/checkout", map[string]any{"plan": "pro", "interval": "year"}); r.status != 200 || !strings.Contains(str(r.body["url"]), "interval=year") {
+		t.Fatalf("yearly checkout: %d %+v", r.status, r.body)
+	}
+	if r := b.do("POST", "/v1/billing/checkout", map[string]any{"plan": "pro", "interval": "week"}); r.status != 422 || r.code != "billing.invalid_interval" {
+		t.Fatalf("unknown interval: %d %s", r.status, r.code)
 	}
 	if r := b.do("POST", "/v1/billing/checkout", map[string]any{"plan": "enterprise"}); r.status != 422 || r.code != "billing.invalid_plan" {
 		t.Fatalf("enterprise checkout: %d %s", r.status, r.code)
@@ -157,7 +166,7 @@ func TestBillingLifecycle(t *testing.T) {
 		t.Fatalf("stale webhook: %d", r.status)
 	}
 	sub := obj(b.do("GET", "/v1/billing", nil).body["subscription"])
-	if str(sub["status"]) != "active" || str(sub["plan"]) != "pro" {
+	if str(sub["status"]) != "active" || str(sub["plan"]) != "pro" || str(sub["interval"]) != "month" {
 		t.Fatalf("a stale notification must be ignored: %+v", sub)
 	}
 	if r := m.billingWebhook("ok", map[string]any{"SubscriptionID": "sub_unknown", "Plan": "pro", "Status": "active", "UpdatedAt": t1}); r.status != 404 || r.code != "billing.not_found" {
@@ -197,8 +206,16 @@ func TestBillingLifecycle(t *testing.T) {
 	if r := b.do("POST", "/v1/billing/checkout", map[string]any{"plan": "pro"}); r.status != 422 || r.code != "billing.same_plan" {
 		t.Fatalf("same plan: %d %s", r.status, r.code)
 	}
+	// The same plan billed yearly is a switch too.
+	yr := b.do("POST", "/v1/billing/checkout", map[string]any{"plan": "pro", "interval": "year"})
+	if yr.status != 200 || yr.body["url"] != nil || str(obj(yr.body["subscription"])["interval"]) != "year" || str(obj(yr.body["subscription"])["plan"]) != "pro" {
+		t.Fatalf("switch to yearly: %d %+v", yr.status, yr.body)
+	}
+	if r := b.do("POST", "/v1/billing/checkout", map[string]any{"plan": "pro", "interval": "year"}); r.status != 422 || r.code != "billing.same_plan" {
+		t.Fatalf("same plan and interval: %d %s", r.status, r.code)
+	}
 	sw := b.do("POST", "/v1/billing/checkout", map[string]any{"plan": "business"})
-	if sw.status != 200 || sw.body["url"] != nil || str(obj(sw.body["subscription"])["plan"]) != "business" {
+	if sw.status != 200 || sw.body["url"] != nil || str(obj(sw.body["subscription"])["plan"]) != "business" || str(obj(sw.body["subscription"])["interval"]) != "month" {
 		t.Fatalf("switch: %d %+v", sw.status, sw.body)
 	}
 	if p := str(user(b.do("GET", "/v1/me", nil))["plan_type"]); p != "business" {

@@ -16,6 +16,7 @@ type Subscription struct {
 	SubscriptionID    string
 	ItemID            string
 	Plan              string
+	Interval          string // "month" or "year" ("" is saved as "month")
 	Status            string
 	RenewsAt          *time.Time
 	EndsAt            *time.Time
@@ -23,11 +24,11 @@ type Subscription struct {
 	ProviderUpdatedAt time.Time
 }
 
-const subscriptionCols = `user_id, provider, customer_id, subscription_id, item_id, plan, status, renews_at, ends_at, test_mode, provider_updated_at`
+const subscriptionCols = `user_id, provider, customer_id, subscription_id, item_id, plan, billing_interval, status, renews_at, ends_at, test_mode, provider_updated_at`
 
 func scanSubscription(row pgx.Row) (Subscription, error) {
 	var s Subscription
-	err := row.Scan(&s.UserID, &s.Provider, &s.CustomerID, &s.SubscriptionID, &s.ItemID, &s.Plan, &s.Status, &s.RenewsAt, &s.EndsAt, &s.TestMode, &s.ProviderUpdatedAt)
+	err := row.Scan(&s.UserID, &s.Provider, &s.CustomerID, &s.SubscriptionID, &s.ItemID, &s.Plan, &s.Interval, &s.Status, &s.RenewsAt, &s.EndsAt, &s.TestMode, &s.ProviderUpdatedAt)
 	return s, mapErr(err)
 }
 
@@ -79,13 +80,13 @@ func (s *Store) SaveSubscription(ctx context.Context, sub Subscription, plan str
 
 	tag, err := tx.Exec(ctx, `
 		INSERT INTO billing_subscriptions (`+subscriptionCols+`)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 		ON CONFLICT (user_id) DO UPDATE SET
 			provider = EXCLUDED.provider, customer_id = EXCLUDED.customer_id, subscription_id = EXCLUDED.subscription_id,
-			item_id = EXCLUDED.item_id, plan = EXCLUDED.plan, status = EXCLUDED.status, renews_at = EXCLUDED.renews_at,
+			item_id = EXCLUDED.item_id, plan = EXCLUDED.plan, billing_interval = EXCLUDED.billing_interval, status = EXCLUDED.status, renews_at = EXCLUDED.renews_at,
 			ends_at = EXCLUDED.ends_at, test_mode = EXCLUDED.test_mode, provider_updated_at = EXCLUDED.provider_updated_at
 		WHERE billing_subscriptions.provider_updated_at <= EXCLUDED.provider_updated_at`,
-		sub.UserID, sub.Provider, sub.CustomerID, sub.SubscriptionID, sub.ItemID, sub.Plan, sub.Status,
+		sub.UserID, sub.Provider, sub.CustomerID, sub.SubscriptionID, sub.ItemID, sub.Plan, interval(sub.Interval), sub.Status,
 		sub.RenewsAt, sub.EndsAt, sub.TestMode, sub.ProviderUpdatedAt.UTC())
 	if err != nil {
 		return false, nil, mapErr(err)
@@ -105,6 +106,14 @@ func (s *Store) SaveSubscription(ctx context.Context, sub Subscription, plan str
 		return false, nil, err
 	}
 	return true, slugs, tx.Commit(ctx)
+}
+
+// interval stores "" (callers that predate yearly billing) as "month".
+func interval(v string) string {
+	if v == "" {
+		return "month"
+	}
+	return v
 }
 
 func subscriptionInEffect(status string, endsAt *time.Time) bool {
@@ -132,7 +141,7 @@ type UsageRow struct {
 func (s *Store) PendingUsage(ctx context.Context, provider string, periods []time.Time) ([]UsageRow, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT u.user_id, u.period_start, u.requests, u.units_reported, u.included_requests,
-		       b.user_id, b.provider, b.customer_id, b.subscription_id, b.item_id, b.plan, b.status, b.renews_at, b.ends_at, b.test_mode, b.provider_updated_at
+		       b.user_id, b.provider, b.customer_id, b.subscription_id, b.item_id, b.plan, b.billing_interval, b.status, b.renews_at, b.ends_at, b.test_mode, b.provider_updated_at
 		FROM usage_counters u
 		JOIN billing_subscriptions b ON b.user_id = u.user_id
 		WHERE b.provider = $1 AND b.item_id <> '' AND b.status IN ('active', 'trialing', 'past_due', 'cancelled')
@@ -145,7 +154,7 @@ func (s *Store) PendingUsage(ctx context.Context, provider string, periods []tim
 		var u UsageRow
 		b := &u.Subscription
 		err := r.Scan(&u.UserID, &u.PeriodStart, &u.Requests, &u.UnitsReported, &u.Included,
-			&b.UserID, &b.Provider, &b.CustomerID, &b.SubscriptionID, &b.ItemID, &b.Plan, &b.Status, &b.RenewsAt, &b.EndsAt, &b.TestMode, &b.ProviderUpdatedAt)
+			&b.UserID, &b.Provider, &b.CustomerID, &b.SubscriptionID, &b.ItemID, &b.Plan, &b.Interval, &b.Status, &b.RenewsAt, &b.EndsAt, &b.TestMode, &b.ProviderUpdatedAt)
 		return u, err
 	})
 }

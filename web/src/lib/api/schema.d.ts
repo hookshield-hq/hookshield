@@ -807,6 +807,11 @@ export interface components {
         BillingSubscription: {
             /** @enum {string} */
             plan: "developer" | "pro" | "business" | "enterprise";
+            /**
+             * @description How often the plan is billed; quotas are monthly either way
+             * @enum {string}
+             */
+            interval: "month" | "year";
             /** @enum {string} */
             status: "active" | "trialing" | "past_due" | "cancelled" | "paused" | "unpaid" | "expired";
             renews_at: string | null;
@@ -816,6 +821,8 @@ export interface components {
         BillingOffer: {
             id: string;
             monthly_price_cents: number;
+            /** @description Price of a year paid at once; 0 = not sold yearly */
+            yearly_price_cents: number;
             currency: string;
             overage_price_cents: number;
             overage_unit: number;
@@ -2283,6 +2290,11 @@ export interface operations {
                 "application/json": {
                     /** @enum {string} */
                     plan: "pro" | "business";
+                    /**
+                     * @default month
+                     * @enum {string}
+                     */
+                    interval?: "month" | "year";
                 };
             };
         };

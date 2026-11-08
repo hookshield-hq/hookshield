@@ -127,6 +127,14 @@
     "title": "Free to start. Pay as you grow.",
     "subtitle": "HookShield Cloud runs, scales and backs up the gateway for you. Prices in USD; taxes are handled by Paddle, our merchant of record.",
     "perMonth": "/month",
+    "perYear": "/year",
+    "yearlyEquivalent": "{price}/month, billed yearly",
+    "interval": {
+      "label": "Billing interval",
+      "month": "Monthly",
+      "year": "Yearly",
+      "save": "2 months free"
+    },
     "custom": "Custom",
     "requests": "{count} requests/month",
     "unlimitedRequests": "Unlimited requests",

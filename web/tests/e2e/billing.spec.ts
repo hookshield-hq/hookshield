@@ -38,6 +38,18 @@ test("billing: upgrade through the checkout, switch plans, cancel in the portal"
   await dialog(page).getByRole("button", { name: "Switch plan" }).click();
   await expect(page.getByText("You are now on Business")).toBeVisible();
   await expect(page.getByText("of 1,000,000 included")).toBeVisible();
+  await expect(page.getByText("Billed monthly", { exact: true })).toBeVisible();
+
+  // Yearly billing: the same plan at the other interval is a switch too; quotas stay monthly.
+  await page.getByRole("radio", { name: "Yearly" }).click();
+  await expect(page.getByText("$890", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Switch to yearly billing" }).click();
+  await dialog(page).getByRole("button", { name: "Switch plan" }).click();
+  await expect(page.getByText("You are now on Business")).toBeVisible();
+  await expect(page.getByText("Billed yearly", { exact: true })).toBeVisible();
+  await expect(page.getByText("of 1,000,000 included")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Current plan" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Switch to monthly billing" })).toHaveCount(0);
 
   // The customer portal (fake) cancels; the plan stays until the end of the period.
   await page.getByRole("button", { name: "Manage billing" }).click();

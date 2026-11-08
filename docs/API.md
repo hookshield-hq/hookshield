@@ -363,23 +363,23 @@ Mounted only on servers with a billing provider (`app.Options.Billing`); self-ho
 | Route | Result |
 |---|---|
 | `GET /v1/billing` | `200 {"plan", "subscription", "usage", "offers"}` — see below |
-| `POST /v1/billing/checkout` | body `{"plan": "pro" \| "business"}` → `200 {"url", "subscription"}`. Without a usable subscription: `url` is the provider's hosted checkout (it returns to `HS_APP_URL/{locale}/billing?checkout=success`), `subscription` is `null`. With one: the plan is switched in place (prorated), `url` is `null` and `subscription` is the updated one |
+| `POST /v1/billing/checkout` | body `{"plan": "pro" \| "business", "interval": "month" \| "year"}` (`interval` defaults to `month`; `year` only for offers with `yearly_price_cents` > 0) → `200 {"url", "subscription"}`. Without a usable subscription: `url` is the provider's hosted checkout (it returns to `HS_APP_URL/{locale}/billing?checkout=success`), `subscription` is `null`. With one: the plan or the interval is switched in place (prorated), `url` is `null` and `subscription` is the updated one |
 | `POST /v1/billing/portal` | `200 {"url"}` — the provider's customer portal (payment method, invoices, cancellation) |
 | `POST /v1/billing/webhook` | Provider notifications, authenticated by signature (public, no cookie, max 256 KiB) → `200 {"ok": true}` |
 
 ```json
 {
   "plan": "pro",
-  "subscription": {"plan": "pro", "status": "active", "renews_at": "2026-12-03T18:00:00Z", "ends_at": null, "test_mode": false},
+  "subscription": {"plan": "pro", "interval": "month", "status": "active", "renews_at": "2026-12-03T18:00:00Z", "ends_at": null, "test_mode": false},
   "usage": {"period_start": "2026-11-01T00:00:00Z", "period_end": "2026-12-01T00:00:00Z", "requests": 1234, "included": 100000, "hard_limit": false},
-  "offers": [{"id": "pro", "monthly_price_cents": 2900, "currency": "USD", "overage_price_cents": 100, "overage_unit": 10000,
+  "offers": [{"id": "pro", "monthly_price_cents": 2900, "yearly_price_cents": 29000, "currency": "USD", "overage_price_cents": 100, "overage_unit": 10000,
               "purchasable": true, "contact_url": "", "limits": {"monthly_requests": 100000, "hard_limit": false, "max_retries": 10, "retention_hours": 720}}]
 }
 ```
 
-`usage.requests` is live (Redis): accepted webhooks, replays and test events of the calendar month (UTC); retries do not count. `null` limits mean unlimited. Subscription `status`: `active`, `trialing`, `past_due` (payment being retried — the plan still applies), `cancelled` (applies until `ends_at`), `paused`, `unpaid`, `expired` (free plan). Notifications older than the stored one are ignored, so out-of-order delivery is harmless.
+`usage.requests` is live (Redis): accepted webhooks, replays and test events of the calendar month (UTC); retries do not count. `null` limits mean unlimited. Quotas are monthly even on a yearly subscription (`interval: "year"`); `yearly_price_cents` is the price of a year paid at once (`0` = not sold yearly). Subscription `status`: `active`, `trialing`, `past_due` (payment being retried — the plan still applies), `cancelled` (applies until `ends_at`), `paused`, `unpaid`, `expired` (free plan). Notifications older than the stored one are ignored, so out-of-order delivery is harmless.
 
-Errors: `billing.invalid_plan` (422, plan not sold online), `billing.same_plan` (422), `billing.no_subscription` (409), `billing.provider_error` (502), and for the webhook `billing.invalid_signature`, `billing.invalid_payload` (400), `billing.not_found` (404, unknown subscription), `billing.subscription_conflict` (409, the provider ID belongs to another account), `billing.payload_too_large` (413).
+Errors: `billing.invalid_plan` (422, plan not sold online), `billing.same_plan` (422, already on that plan and interval), `billing.invalid_interval` (422), `billing.no_subscription` (409), `billing.provider_error` (502), and for the webhook `billing.invalid_signature`, `billing.invalid_payload` (400), `billing.not_found` (404, unknown subscription), `billing.subscription_conflict` (409, the provider ID belongs to another account), `billing.payload_too_large` (413).
 
 ## Google sign-in
 

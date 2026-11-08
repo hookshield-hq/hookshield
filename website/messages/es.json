@@ -127,6 +127,14 @@
     "title": "Gratis para empezar. Paga a medida que creces.",
     "subtitle": "HookShield Cloud ejecuta, escala y respalda el gateway por ti. Precios en USD; los impuestos los gestiona Paddle, nuestro merchant of record.",
     "perMonth": "/mes",
+    "perYear": "/año",
+    "yearlyEquivalent": "{price}/mes, facturado anualmente",
+    "interval": {
+      "label": "Periodo de facturación",
+      "month": "Mensual",
+      "year": "Anual",
+      "save": "2 meses gratis"
+    },
     "custom": "A medida",
     "requests": "{count} solicitudes/mes",
     "unlimitedRequests": "Solicitudes ilimitadas",

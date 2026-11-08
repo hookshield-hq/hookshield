@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
 import { Check, CreditCard, ExternalLink, Loader2, Sparkles } from "lucide-react";
-import { useBilling, useCheckout, useFeatures, usePortal, type BillingOffer, type BillingOverview } from "@/lib/queries";
+import { useBilling, useCheckout, useFeatures, usePortal, type BillingInterval, type BillingOffer, type BillingOverview } from "@/lib/queries";
 import { formatNumber } from "@/lib/format";
 import { useErrorMessage } from "@/lib/use-error-message";
 import { Badge, type Tone } from "@/components/ui/badge";
@@ -14,6 +14,7 @@ import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
+import { Segmented } from "@/components/ui/segmented";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/cn";
@@ -46,6 +47,14 @@ function money(locale: string, cents: number, currency: string) {
 function date(locale: string, iso: string) {
   return new Intl.DateTimeFormat(locale, { dateStyle: "long" }).format(new Date(iso));
 }
+
+/** The interval an offer is bought with when `view` is shown: yearly only where the plan has a yearly price. */
+function intervalFor(offer: BillingOffer, view: BillingInterval): BillingInterval {
+  return view === "year" && offer.yearly_price_cents > 0 ? "year" : "month";
+}
+
+/** A plan choice: the offer and how often it is billed. */
+type Choice = { offer: BillingOffer; interval: BillingInterval };
 
 /** Leaves the page for the provider (checkout or customer portal). */
 function go(url: string) {
@@ -86,11 +95,29 @@ function Usage({ b }: { b: BillingOverview }) {
   );
 }
 
-function PlanCard({ offer, current, subscribed, onChoose, busy }: { offer: BillingOffer; current: boolean; subscribed: boolean; onChoose: (o: BillingOffer) => void; busy: boolean }) {
+function PlanCard({
+  offer,
+  interval,
+  current,
+  samePlan,
+  subscribed,
+  onChoose,
+  busy,
+}: {
+  offer: BillingOffer;
+  interval: BillingInterval;
+  current: boolean;
+  /** The account is on this plan, billed at the other interval. */
+  samePlan: boolean;
+  subscribed: boolean;
+  onChoose: (c: Choice) => void;
+  busy: boolean;
+}) {
   const t = useTranslations("billing");
   const plans = useTranslations("settings.plans");
   const locale = useLocale();
   const l = offer.limits;
+  const yearly = interval === "year";
   const popular = offer.id === "pro";
   const features = [
     l.monthly_requests == null ? t("features.unlimited") : t("features.requests", { n: formatNumber(locale, l.monthly_requests) }),
@@ -113,8 +140,12 @@ function PlanCard({ offer, current, subscribed, onChoose, busy }: { offer: Billi
     );
   } else if (offer.purchasable) {
     action = (
-      <Button className="w-full justify-center" loading={busy} onClick={() => onChoose(offer)}>
-        {subscribed ? t("switchTo", { plan: plans(offer.id) }) : t("upgrade", { plan: plans(offer.id) })}
+      <Button className="w-full justify-center" loading={busy} onClick={() => onChoose({ offer, interval })}>
+        {samePlan
+          ? t(yearly ? "switchToYearly" : "switchToMonthly")
+          : subscribed
+            ? t("switchTo", { plan: plans(offer.id) })
+            : t("upgrade", { plan: plans(offer.id) })}
       </Button>
     );
   } else if (offer.contact_url) {
@@ -136,16 +167,23 @@ function PlanCard({ offer, current, subscribed, onChoose, busy }: { offer: Billi
         </Badge>
       )}
       <h3 className="text-base font-semibold text-fg">{plans(offer.id)}</h3>
-      <div className="mt-2 mb-4 flex items-baseline gap-1">
-        {offer.monthly_price_cents > 0 ? (
-          <>
-            <span className="text-3xl font-semibold tracking-tight text-fg">{money(locale, offer.monthly_price_cents, offer.currency)}</span>
-            <span className="text-sm text-muted">{t("perMonth")}</span>
-          </>
-        ) : offer.purchasable || offer.id === "developer" ? (
-          <span className="text-3xl font-semibold tracking-tight text-fg">{t("free")}</span>
-        ) : (
-          <span className="text-3xl font-semibold tracking-tight text-fg">{t("custom")}</span>
+      <div className="mt-2 mb-4">
+        <div className="flex items-baseline gap-1">
+          {offer.monthly_price_cents > 0 ? (
+            <>
+              <span className="text-3xl font-semibold tracking-tight text-fg">
+                {money(locale, yearly ? offer.yearly_price_cents : offer.monthly_price_cents, offer.currency)}
+              </span>
+              <span className="text-sm text-muted">{t(yearly ? "perYear" : "perMonth")}</span>
+            </>
+          ) : offer.purchasable || offer.id === "developer" ? (
+            <span className="text-3xl font-semibold tracking-tight text-fg">{t("free")}</span>
+          ) : (
+            <span className="text-3xl font-semibold tracking-tight text-fg">{t("custom")}</span>
+          )}
+        </div>
+        {yearly && offer.monthly_price_cents > 0 && (
+          <p className="mt-1 text-xs text-muted">{t("yearlyEquivalent", { price: money(locale, Math.round(offer.yearly_price_cents / 12), offer.currency) })}</p>
         )}
       </div>
       <ul className="mb-5 flex flex-1 flex-col gap-2 text-sm text-muted">
@@ -192,7 +230,9 @@ export function BillingPage() {
   }, [pending]);
   const checkout = useCheckout();
   const portal = usePortal();
-  const [switching, setSwitching] = useState<BillingOffer | null>(null);
+  const [switching, setSwitching] = useState<Choice | null>(null);
+  // Prices shown per month or per year; starts on the subscription's interval.
+  const [view, setView] = useState<BillingInterval | null>(null);
   const announced = useRef(false);
   useEffect(() => {
     if (!activated || announced.current) return;
@@ -202,12 +242,12 @@ export function BillingPage() {
     toast.success(t("activated"));
   }, [activated, qc, toast, t]);
 
-  const choose = (o: BillingOffer) => {
+  const choose = (c: Choice) => {
     if (billing.data?.subscription && ["active", "trialing", "past_due", "cancelled"].includes(billing.data.subscription.status)) {
-      setSwitching(o);
+      setSwitching(c);
       return;
     }
-    checkout.mutate(o.id as "pro" | "business", { onSuccess: (r) => r.url && go(r.url), onError: (err) => toast.error(errorMessage(err)) });
+    checkout.mutate({ plan: c.offer.id as "pro" | "business", interval: c.interval }, { onSuccess: (r) => r.url && go(r.url), onError: (err) => toast.error(errorMessage(err)) });
   };
 
   if (features.isError && !features.data) {
@@ -235,6 +275,10 @@ export function BillingPage() {
   const b = billing.data;
   const sub = b?.subscription ?? null;
   const usable = !!sub && ["active", "trialing", "past_due", "cancelled"].includes(sub.status);
+  const subInterval: BillingInterval = usable && sub?.interval === "year" ? "year" : "month";
+  const yearlySold = !!b?.offers.some((o) => o.yearly_price_cents > 0);
+  const shown: BillingInterval = yearlySold ? (view ?? subInterval) : "month";
+  const switchingSamePlan = !!switching && switching.offer.id === b?.plan;
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -286,6 +330,7 @@ export function BillingPage() {
                 <div className="flex flex-wrap items-center gap-3">
                   <span className="text-2xl font-semibold text-fg">{plans.has(b.plan) ? plans(b.plan) : b.plan}</span>
                   {sub && <Badge tone={statusTone[sub.status]}>{t(`status.${sub.status}`)}</Badge>}
+                  {usable && <Badge tone="neutral">{t(subInterval === "year" ? "billedYearly" : "billedMonthly")}</Badge>}
                 </div>
                 <p className="text-sm text-muted">
                   {!sub
@@ -303,11 +348,43 @@ export function BillingPage() {
             <Usage b={b} />
           </div>
 
-          <h2 className="mb-3 text-sm font-semibold text-fg">{t("plans")}</h2>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-sm font-semibold text-fg">{t("plans")}</h2>
+            {yearlySold && (
+              <div className="flex items-center gap-2">
+                <Segmented
+                  size="sm"
+                  label={t("interval.label")}
+                  value={shown}
+                  onChange={setView}
+                  options={[
+                    { value: "month", label: t("interval.month") },
+                    { value: "year", label: t("interval.year") },
+                  ]}
+                />
+                <Badge tone="success">{t("interval.save")}</Badge>
+              </div>
+            )}
+          </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            {b.offers.map((o) => (
-              <PlanCard key={o.id} offer={o} current={o.id === b.plan} subscribed={usable} busy={checkout.isPending && checkout.variables === o.id} onChoose={choose} />
-            ))}
+            {b.offers.map((o) => {
+              const interval = intervalFor(o, shown);
+              const onPlan = o.id === b.plan;
+              // Free and custom plans have no interval; a paid plan is current only at the interval it is billed.
+              const current = onPlan && (!usable || o.monthly_price_cents === 0 || interval === subInterval);
+              return (
+                <PlanCard
+                  key={o.id}
+                  offer={o}
+                  interval={interval}
+                  current={current}
+                  samePlan={onPlan && usable && !current}
+                  subscribed={usable}
+                  busy={checkout.isPending && checkout.variables?.plan === o.id && checkout.variables?.interval === interval}
+                  onChoose={choose}
+                />
+              );
+            })}
           </div>
           <p className="mt-4 text-xs text-subtle">{t("note")}</p>
         </>
@@ -317,17 +394,21 @@ export function BillingPage() {
         open={!!switching}
         tone="primary"
         onClose={() => setSwitching(null)}
-        title={t("switchTitle", { plan: switching ? plans(switching.id) : "" })}
-        body={t("switchBody")}
+        title={
+          switchingSamePlan
+            ? t(switching?.interval === "year" ? "switchToYearlyTitle" : "switchToMonthlyTitle")
+            : t("switchTitle", { plan: switching ? plans(switching.offer.id) : "" })
+        }
+        body={switchingSamePlan ? t("switchIntervalBody") : t("switchBody")}
         confirmLabel={t("switchConfirm")}
         loading={checkout.isPending}
         onConfirm={() =>
           switching &&
-          checkout.mutate(switching.id as "pro" | "business", {
+          checkout.mutate({ plan: switching.offer.id as "pro" | "business", interval: switching.interval }, {
             onSuccess: (r) => {
               setSwitching(null);
               if (r.url) go(r.url);
-              else toast.success(t("switched", { plan: plans(switching.id) }));
+              else toast.success(t("switched", { plan: plans(switching.offer.id) }));
             },
             onError: (err) => {
               setSwitching(null);

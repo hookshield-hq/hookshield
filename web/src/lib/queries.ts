@@ -356,10 +356,13 @@ export function useBilling(opts: { enabled?: boolean; refetchInterval?: number |
   });
 }
 
+export type BillingInterval = "month" | "year";
+export type CheckoutInput = { plan: "pro" | "business"; interval: BillingInterval };
+
 export function useCheckout() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (plan: "pro" | "business") => data(await (await api()).POST("/v1/billing/checkout", { body: { plan } })),
+    mutationFn: async ({ plan, interval }: CheckoutInput) => data(await (await api()).POST("/v1/billing/checkout", { body: { plan, interval } })),
     onSuccess: (r) => {
       if (r.subscription) {
         void qc.invalidateQueries({ queryKey: ["billing"] });

@@ -336,6 +336,7 @@
       "payload_too_large": "A notificação de cobrança é grande demais.",
       "invalid_plan": "Este plano não pode ser comprado on-line.",
       "same_plan": "Você já está neste plano.",
+      "invalid_interval": "Escolha a cobrança mensal ou anual.",
       "no_subscription": "Você ainda não tem assinatura.",
       "subscription_conflict": "Esta assinatura pertence a outra conta.",
       "not_found": "Assinatura não encontrada.",
@@ -932,6 +933,8 @@
     "endsOn": "Cancelado: o {plan} continua ativo até {date}; depois você volta ao plano grátis.",
     "pastDue": "O último pagamento falhou. Atualize a forma de pagamento para manter o plano.",
     "inactive": "A assinatura não está ativa: valem os limites do plano grátis.",
+    "billedMonthly": "Cobrança mensal",
+    "billedYearly": "Cobrança anual",
     "status": {
       "active": "Ativa",
       "trialing": "Avaliação",
@@ -952,13 +955,23 @@
       "nearOverage": "Mais de 80% da cota incluída."
     },
     "plans": "Planos",
+    "interval": {
+      "label": "Período de cobrança",
+      "month": "Mensal",
+      "year": "Anual",
+      "save": "2 meses grátis"
+    },
     "popular": "Mais escolhido",
     "perMonth": "/mês",
+    "perYear": "/ano",
+    "yearlyEquivalent": "{price}/mês, cobrado anualmente",
     "free": "Grátis",
     "custom": "Sob consulta",
     "current": "Plano atual",
     "upgrade": "Assinar o {plan}",
     "switchTo": "Mudar para o {plan}",
+    "switchToYearly": "Mudar para cobrança anual",
+    "switchToMonthly": "Mudar para cobrança mensal",
     "contact": "Falar com vendas",
     "downgradeHint": "Para voltar ao plano grátis, cancele em “Gerenciar cobrança”.",
     "features": {
@@ -970,9 +983,12 @@
       "overage": "{price} a cada {unit} requisições extras",
       "hardLimit": "Webhooks acima da cota são recusados"
     },
-    "note": "Preços em USD, impostos calculados no checkout. O uso reinicia no dia 1º de cada mês (UTC); o excedente vem na próxima fatura.",
+    "note": "Preços em USD, impostos calculados no checkout. O uso reinicia no dia 1º de cada mês (UTC), também nos planos anuais; o excedente vem na próxima fatura (nos planos anuais, ao fim de cada mês).",
     "switchTitle": "Mudar para o {plan}?",
     "switchBody": "A mudança vale agora. A diferença de preço é proporcional e vem na próxima fatura.",
+    "switchToYearlyTitle": "Mudar para cobrança anual?",
+    "switchToMonthlyTitle": "Mudar para cobrança mensal?",
+    "switchIntervalBody": "A mudança vale agora e um novo período de cobrança começa hoje: você paga o novo preço menos a parte não usada do período atual. As cotas continuam mensais.",
     "switchConfirm": "Mudar de plano",
     "switched": "Agora você está no {plan}"
   }

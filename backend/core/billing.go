@@ -16,8 +16,8 @@ import (
 type Billing interface {
 	// Offers is the plan catalog shown on the billing page, cheapest first.
 	Offers() []Offer
-	// Checkout starts a subscription to req.Plan, or switches the current
-	// one (req.Current) to it. A new subscription returns the provider's
+	// Checkout starts a subscription to req.Plan billed every req.Interval,
+	// or switches the current one (req.Current) to it. A new subscription returns the provider's
 	// checkout URL; a switch returns the updated subscription and no URL.
 	Checkout(ctx context.Context, req CheckoutRequest) (CheckoutResult, error)
 	// Portal returns a URL where the customer manages payment methods,
@@ -34,7 +34,10 @@ type Offer struct {
 	ID string // plan identifier, as in users.plan_type
 	// MonthlyPriceCents is the base price per month; 0 = free.
 	MonthlyPriceCents int64
-	Currency          string // ISO 4217, e.g. "USD"
+	// YearlyPriceCents is the price of a year paid at once; 0 = the plan
+	// cannot be billed yearly. Quotas stay monthly either way.
+	YearlyPriceCents int64
+	Currency         string // ISO 4217, e.g. "USD"
 	// OveragePriceCents is charged per OverageUnit requests above the quota;
 	// 0 = no overage (the quota is a hard limit or the plan is unlimited).
 	OveragePriceCents int64
@@ -45,10 +48,26 @@ type Offer struct {
 	ContactURL  string
 }
 
-// CheckoutRequest asks for a subscription to Plan.
+// Billing intervals of a subscription.
+const (
+	IntervalMonth = "month"
+	IntervalYear  = "year"
+)
+
+// NormalizeInterval maps "" (subscriptions saved before yearly billing) to
+// IntervalMonth.
+func NormalizeInterval(interval string) string {
+	if interval == "" {
+		return IntervalMonth
+	}
+	return interval
+}
+
+// CheckoutRequest asks for a subscription to Plan, billed every Interval.
 type CheckoutRequest struct {
 	User      User
 	Plan      string
+	Interval  string        // IntervalMonth or IntervalYear
 	ReturnURL string        // where the provider sends the customer back
 	Current   *Subscription // the active subscription, if any
 }
@@ -80,6 +99,7 @@ type Subscription struct {
 	// ItemID is the provider's line the usage is reported to (metered billing).
 	ItemID    string
 	Plan      string // plan identifier the subscription grants
+	Interval  string // IntervalMonth or IntervalYear ("" = month)
 	Status    string // one of the Status constants
 	RenewsAt  *time.Time
 	EndsAt    *time.Time

@@ -86,12 +86,12 @@ Indexes cover the dashboard filters (endpoint + status + time, endpoint + event 
 
 > Scale note: `payload_logs` is the hot table. Time-based partitioning (monthly) is a planned optimisation once volume requires it; the schema avoids features that would block it.
 
-### Billing — `0004_usage.sql`, `0005_billing.sql`, `0007_usage_included.sql`
+### Billing — `0004_usage.sql`, `0005_billing.sql`, `0007_usage_included.sql`, `0008_billing_interval.sql`
 
 | Table | Purpose | Notes |
 |---|---|---|
 | `usage_counters` | Monthly usage per user | `period_start` is always day 1 of the month. `requests` = accepted requests (webhooks, replays and test events; retries are not counted), copied every minute from the live Redis counter by the worker and never lowered. `units_reported` (renamed from `overage_reported` in 0005) is how much of the month was already reported to the billing provider, in the provider's unit; it is claimed by compare-and-set before billing and given back by subtraction when the provider refuses, so a unit is billed once. `included_requests` (0007) is the most generous monthly quota the account held during the month (raised by the billing job, never lowered), so a downgrade never turns included requests into overage. `delivery_attempts` is reserved. |
-| `billing_subscriptions` | Subscription of an account (HookShield Cloud only) | Provider-agnostic: `provider`, `customer_id`, `subscription_id` (unique per provider), `item_id` (what usage is billed against: Paddle's overage price), `plan`, `status` (`active`, `trialing`, `past_due`, `cancelled`, `paused`, `unpaid`, `expired`), `renews_at`, `ends_at`, `test_mode` (sandbox). `provider_updated_at` makes out-of-order notifications harmless (older ones are ignored). Saving a subscription sets `users.plan_type` to the plan it grants in the same transaction. The legacy `users.lemon_squeezy_*` columns are not used. |
+| `billing_subscriptions` | Subscription of an account (HookShield Cloud only) | Provider-agnostic: `provider`, `customer_id`, `subscription_id` (unique per provider), `item_id` (what usage is billed against: Paddle's overage price), `plan`, `billing_interval` (0008: `month` or `year`, default `month`; quotas stay monthly), `status` (`active`, `trialing`, `past_due`, `cancelled`, `paused`, `unpaid`, `expired`), `renews_at`, `ends_at`, `test_mode` (sandbox). `provider_updated_at` makes out-of-order notifications harmless (older ones are ignored). Saving a subscription sets `users.plan_type` to the plan it grants in the same transaction. The legacy `users.lemon_squeezy_*` columns are not used. |
 
 ### Install — `0006_system_settings.sql`
 

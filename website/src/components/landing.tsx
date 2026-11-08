@@ -22,6 +22,7 @@ import {
 import { APP_URL, CLI_INSTALL, CONTACT, DEPLOY, GITHUB_URL } from "@/site";
 import { formatNumber, formatUSD, getT, type Locale, type T } from "@/i18n";
 import { plans, type Plan } from "@/pricing";
+import { BillingInterval } from "./billing-interval";
 import { CopyButton } from "./copy-button";
 
 /** Measured ingest p99 at 200 req/s (docs/PERFORMANCE.md). Update with the benchmark. */
@@ -337,47 +338,60 @@ function Pricing({ locale, t }: { locale: Locale; t: T }) {
     <section id="pricing" className="border-y border-line bg-surface/40 py-24" aria-labelledby="pricing-title">
       <div className="mx-auto max-w-6xl px-5">
         <SectionHeading id="pricing-title" eyebrow={t("pricing.eyebrow")} title={t("pricing.title")} subtitle={t("pricing.subtitle")} />
-        <ul className="mt-14 grid gap-5 md:grid-cols-2 lg:grid-cols-4">
-          {plans.map((plan) => {
-            const href = plan.id === "enterprise" ? CONTACT.sales : `${APP_URL}/${locale}/register`;
-            return (
-              <li
-                key={plan.id}
-                className={`relative flex flex-col rounded-2xl p-6 ${plan.popular ? "border-2 border-accent bg-bg shadow-xl shadow-violet-500/10" : "glass"}`}
-              >
-                {plan.popular && (
-                  <span className="bg-accent-gradient absolute -top-3 left-6 rounded-full px-2.5 py-0.5 text-xs font-medium text-white">
-                    {t("pricing.popular")}
-                  </span>
-                )}
-                <h3 className="font-semibold">{t(`pricing.plans.${plan.id}`)}</h3>
-                <p className="mt-1 min-h-10 text-sm text-muted">{t(`pricing.taglines.${plan.id}`)}</p>
-                <p className="mt-5 flex items-baseline gap-1">
-                  <span className="text-4xl font-semibold tracking-tight">
-                    {plan.monthlyCents === null ? t("pricing.custom") : formatUSD(locale, plan.monthlyCents)}
-                  </span>
-                  {plan.monthlyCents !== null && <span className="text-sm text-muted">{t("pricing.perMonth")}</span>}
-                </p>
-                <ul className="mt-6 space-y-2.5 text-sm">
-                  {planFeatures(plan, locale, t).map((f) => (
-                    <li key={f} className="flex gap-2">
-                      <Check className="mt-0.5 size-4 shrink-0 text-success" aria-hidden />
-                      <span>{f}</span>
-                    </li>
-                  ))}
-                </ul>
-                <a
-                  href={href}
-                  className={`mt-8 rounded-xl px-4 py-2.5 text-center text-sm font-medium transition ${
-                    plan.popular ? "bg-accent-gradient text-white hover:opacity-90" : "border border-line bg-surface-strong hover:border-accent"
-                  }`}
+        <BillingInterval
+          labels={{ group: t("pricing.interval.label"), month: t("pricing.interval.month"), year: t("pricing.interval.year"), save: t("pricing.interval.save") }}
+        >
+          <ul className="mt-10 grid gap-5 md:grid-cols-2 lg:grid-cols-4">
+            {plans.map((plan) => {
+              const href = plan.id === "enterprise" ? CONTACT.sales : `${APP_URL}/${locale}/register`;
+              return (
+                <li
+                  key={plan.id}
+                  className={`relative flex flex-col rounded-2xl p-6 ${plan.popular ? "border-2 border-accent bg-bg shadow-xl shadow-violet-500/10" : "glass"}`}
                 >
-                  {t(`pricing.cta.${plan.id}`)}
-                </a>
-              </li>
-            );
-          })}
-        </ul>
+                  {plan.popular && (
+                    <span className="bg-accent-gradient absolute -top-3 left-6 rounded-full px-2.5 py-0.5 text-xs font-medium text-white">
+                      {t("pricing.popular")}
+                    </span>
+                  )}
+                  <h3 className="font-semibold">{t(`pricing.plans.${plan.id}`)}</h3>
+                  <p className="mt-1 min-h-10 text-sm text-muted">{t(`pricing.taglines.${plan.id}`)}</p>
+                  <p className={`mt-5 flex items-baseline gap-1 ${plan.yearlyCents ? "group-data-[interval=year]:hidden" : ""}`}>
+                    <span className="text-4xl font-semibold tracking-tight">
+                      {plan.monthlyCents === null ? t("pricing.custom") : formatUSD(locale, plan.monthlyCents)}
+                    </span>
+                    {plan.monthlyCents !== null && <span className="text-sm text-muted">{t("pricing.perMonth")}</span>}
+                  </p>
+                  {plan.yearlyCents ? (
+                    <div className="mt-5 hidden group-data-[interval=year]:block">
+                      <p className="flex items-baseline gap-1">
+                        <span className="text-4xl font-semibold tracking-tight">{formatUSD(locale, plan.yearlyCents)}</span>
+                        <span className="text-sm text-muted">{t("pricing.perYear")}</span>
+                      </p>
+                      <p className="mt-1 text-xs text-muted">{t("pricing.yearlyEquivalent", { price: formatUSD(locale, Math.round(plan.yearlyCents / 12)) })}</p>
+                    </div>
+                  ) : null}
+                  <ul className="mt-6 space-y-2.5 text-sm">
+                    {planFeatures(plan, locale, t).map((f) => (
+                      <li key={f} className="flex gap-2">
+                        <Check className="mt-0.5 size-4 shrink-0 text-success" aria-hidden />
+                        <span>{f}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <a
+                    href={href}
+                    className={`mt-8 rounded-xl px-4 py-2.5 text-center text-sm font-medium transition ${
+                      plan.popular ? "bg-accent-gradient text-white hover:opacity-90" : "border border-line bg-surface-strong hover:border-accent"
+                    }`}
+                  >
+                    {t(`pricing.cta.${plan.id}`)}
+                  </a>
+                </li>
+              );
+            })}
+          </ul>
+        </BillingInterval>
         <div className="glass mt-6 flex flex-col items-start gap-4 rounded-2xl p-6 sm:flex-row sm:items-center">
           <Server className="size-6 shrink-0 text-accent" aria-hidden />
           <div className="flex-1">

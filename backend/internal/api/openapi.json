@@ -2050,6 +2050,14 @@
                       "pro",
                       "business"
                     ]
+                  },
+                  "interval": {
+                    "type": "string",
+                    "enum": [
+                      "month",
+                      "year"
+                    ],
+                    "default": "month"
                   }
                 },
                 "required": [
@@ -2810,6 +2818,14 @@
               "enterprise"
             ]
           },
+          "interval": {
+            "type": "string",
+            "enum": [
+              "month",
+              "year"
+            ],
+            "description": "How often the plan is billed; quotas are monthly either way"
+          },
           "status": {
             "type": "string",
             "enum": [
@@ -2850,6 +2866,7 @@
         },
         "required": [
           "plan",
+          "interval",
           "status",
           "renews_at",
           "ends_at",
@@ -2864,6 +2881,10 @@
           },
           "monthly_price_cents": {
             "type": "integer"
+          },
+          "yearly_price_cents": {
+            "type": "integer",
+            "description": "Price of a year paid at once; 0 = not sold yearly"
           },
           "currency": {
             "type": "string"
@@ -2921,6 +2942,7 @@
         "required": [
           "id",
           "monthly_price_cents",
+          "yearly_price_cents",
           "currency",
           "overage_price_cents",
           "overage_unit",

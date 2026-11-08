@@ -1,6 +1,6 @@
 ---
 title: Terms of Service
-updated: 2026-11-04
+updated: 2026-11-08
 draft: false
 ---
 
@@ -17,7 +17,7 @@ You must give a valid email address and keep your password and API keys secret. 
 ## Plans, billing and refunds
 
 - The **Developer** plan is free and stops accepting webhooks when its monthly limit is reached.
-- **Pro** and **Business** are monthly subscriptions with an included number of requests; requests above it are billed per started block of 10,000 at the price shown on the [pricing page](/#pricing). Retries do not count as requests; received webhooks, replays and test events do.
+- **Pro** and **Business** are subscriptions paid monthly or yearly, with an included number of requests per calendar month (also on yearly plans); requests above it are billed per started block of 10,000 at the price shown on the [pricing page](/#pricing) — with the next invoice on monthly plans, and when each month ends on yearly plans. Retries do not count as requests; received webhooks, replays and test events do.
 - Our order process is conducted by our online reseller **Paddle.com**. Paddle.com is the Merchant of Record for all our orders: it charges your payment method, issues invoices, collects applicable taxes and handles returns. Paddle's [buyer terms](https://www.paddle.com/legal/checkout-buyer-terms) apply to the payment.
 - You can cancel at any time from **Billing**; the plan stays active until the end of the paid period and is not renewed. You can get a full refund within 14 days of any payment, as described in the [Refund Policy](/legal/refund/).
 - We may change prices with at least 30 days' notice by email. The change applies from your next billing period.
