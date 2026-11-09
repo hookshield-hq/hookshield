@@ -155,7 +155,7 @@ type UsageRecord struct {
 	PeriodStart time.Time // first day of the month, UTC
 	Requests    int64     // accepted requests in the month
 	// UnitsReported is how much of this month was already reported to the
-	// provider, in the implementation's unit (e.g. blocks of 10,000 requests).
+	// provider, in the implementation's unit (e.g. blocks of 100,000 requests).
 	UnitsReported int64
 	// IncludedRequests is the largest monthly quota recorded for this period
 	// (RaiseIncluded); 0 when none was recorded.

@@ -138,7 +138,7 @@
     "custom": "Custom",
     "requests": "{count} requests/month",
     "unlimitedRequests": "Unlimited requests",
-    "overage": "{price} per 10,000 extra",
+    "overage": "{price} per 100,000 extra",
     "hardLimit": "Stops at the limit",
     "retries": "Up to {count} retries per webhook",
     "unlimitedRetries": "Custom retry rules",

@@ -324,7 +324,7 @@ function planFeatures(plan: Plan, locale: Locale, t: T): string[] {
   const out: string[] = [];
   out.push(plan.requests === null ? t("pricing.unlimitedRequests") : t("pricing.requests", { count: formatNumber(locale, plan.requests) }));
   if (plan.hardLimit) out.push(t("pricing.hardLimit"));
-  else if (plan.overageCentsPer10k) out.push(t("pricing.overage", { price: formatUSD(locale, plan.overageCentsPer10k) }));
+  else if (plan.overageCentsPer100k) out.push(t("pricing.overage", { price: formatUSD(locale, plan.overageCentsPer100k) }));
   out.push(plan.maxRetries === null ? t("pricing.unlimitedRetries") : t("pricing.retries", { count: plan.maxRetries }));
   if (plan.id === "enterprise") out.push(t("pricing.customRetention"));
   else if (plan.retentionHours === 24) out.push(t("pricing.retention24h"));

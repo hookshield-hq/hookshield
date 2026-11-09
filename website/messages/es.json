@@ -138,7 +138,7 @@
     "custom": "A medida",
     "requests": "{count} solicitudes/mes",
     "unlimitedRequests": "Solicitudes ilimitadas",
-    "overage": "{price} por cada 10.000 extra",
+    "overage": "{price} por cada 100.000 extra",
     "hardLimit": "Se detiene en el límite",
     "retries": "Hasta {count} reintentos por webhook",
     "unlimitedRetries": "Reglas de reintento personalizadas",

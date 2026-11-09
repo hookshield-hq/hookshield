@@ -138,7 +138,7 @@
     "custom": "Sob consulta",
     "requests": "{count} requisições/mês",
     "unlimitedRequests": "Requisições ilimitadas",
-    "overage": "{price} a cada 10.000 extras",
+    "overage": "{price} a cada 100.000 extras",
     "hardLimit": "Para no limite",
     "retries": "Até {count} retentativas por webhook",
     "unlimitedRetries": "Regras de retentativa personalizadas",
